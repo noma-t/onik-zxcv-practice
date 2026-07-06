@@ -79,6 +79,26 @@ function buildKeyboard() {
   }
 }
 
+// ---------- 指ガイド描画 ----------
+
+const FINGER_ORDER = [
+  "l-pinky", "l-ring", "l-middle", "l-index", "l-thumb",
+  "r-thumb", "r-index", "r-middle", "r-ring", "r-pinky",
+];
+
+const fingersEl = document.getElementById("fingers");
+const fingerElByName = {};
+
+function buildFingers() {
+  fingersEl.innerHTML = "";
+  for (const name of FINGER_ORDER) {
+    const el = document.createElement("div");
+    el.className = `finger finger-${name}`;
+    fingerElByName[name] = el;
+    fingersEl.appendChild(el);
+  }
+}
+
 // ---------- レッスンナビ描画 ----------
 
 const lessonNavEl = document.getElementById("lesson-nav");
@@ -196,6 +216,7 @@ function renderSentence() {
 
 function clearNextKeyHighlight() {
   document.querySelectorAll(".key-next").forEach((el) => el.classList.remove("key-next"));
+  document.querySelectorAll(".finger-active").forEach((el) => el.classList.remove("finger-active"));
 }
 
 function highlightNextKey() {
@@ -207,8 +228,11 @@ function highlightNextKey() {
   if (!target) return;
   const el = keyElByCode[target.code];
   if (el) el.classList.add("key-next");
+  const finger = KEY_BY_CODE[target.code]?.finger;
+  if (finger) fingerElByName[finger]?.classList.add("finger-active");
   if (target.shift) {
     keyElByCode["ShiftLeft"]?.classList.add("key-next");
+    fingerElByName["l-pinky"]?.classList.add("finger-active");
   }
 }
 
@@ -334,5 +358,6 @@ btnRepeatMode.addEventListener("click", () => {
 // ---------- 初期化 ----------
 
 buildKeyboard();
+buildFingers();
 buildLessonNav();
 startSentence();

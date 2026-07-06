@@ -201,6 +201,33 @@ body {
   border-color: var(--danger);
 }
 
+/* ---------- 指ガイド ---------- */
+
+.fingers {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.finger {
+  width: 32px;
+  background: var(--border);
+  border-radius: 16px 16px 4px 4px;
+  transition: background 0.15s ease;
+}
+
+.finger-active {
+  background: var(--accent);
+}
+
+.finger-l-pinky, .finger-r-pinky { height: 62px; }
+.finger-l-ring, .finger-r-ring { height: 80px; }
+.finger-l-middle, .finger-r-middle { height: 88px; }
+.finger-l-index, .finger-r-index { height: 78px; }
+.finger-l-thumb, .finger-r-thumb { height: 42px; }
+
 /* ---------- 例文表示 ---------- */
 
 .sentence-box {
@@ -358,6 +385,17 @@ body {
   .sentence-box {
     font-size: 1.05rem;
   }
+  .fingers {
+    gap: 5px;
+  }
+  .finger {
+    width: 22px;
+  }
+  .finger-l-pinky, .finger-r-pinky { height: 44px; }
+  .finger-l-ring, .finger-r-ring { height: 58px; }
+  .finger-l-middle, .finger-r-middle { height: 64px; }
+  .finger-l-index, .finger-r-index { height: 56px; }
+  .finger-l-thumb, .finger-r-thumb { height: 30px; }
 }
 
 @media (prefers-color-scheme: dark) {
