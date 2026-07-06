@@ -42,18 +42,20 @@ body {
 }
 
 .layout {
-  max-width: 980px;
   margin: 0 auto;
   padding: 0 1.25rem 3rem;
   display: grid;
-  grid-template-columns: 160px 1fr;
-  gap: 2rem;
+  grid-template-columns: minmax(200px, 1fr) 700px minmax(200px, 1fr);
+  column-gap: 2rem;
   align-items: start;
 }
 
 /* ---------- レッスンナビ ---------- */
 
 .lesson-nav {
+  grid-column: 1;
+  justify-self: end;
+  width: 160px;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -93,6 +95,7 @@ body {
 /* ---------- 練習パネル ---------- */
 
 .practice-panel {
+  grid-column: 2;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -327,11 +330,14 @@ body {
 
 /* ---------- レスポンシブ ---------- */
 
-@media (max-width: 720px) {
+@media (max-width: 1120px) {
   .layout {
     grid-template-columns: 1fr;
   }
   .lesson-nav {
+    grid-column: 1;
+    justify-self: stretch;
+    width: auto;
     position: static;
     flex-direction: row;
     flex-wrap: wrap;
@@ -339,6 +345,9 @@ body {
     border-bottom: 2px solid var(--border);
     padding-left: 0;
     padding-bottom: 0.75rem;
+  }
+  .practice-panel {
+    grid-column: 1;
   }
   .key {
     height: 40px;
