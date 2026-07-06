@@ -297,6 +297,23 @@ body {
   background: #c8611a;
 }
 
+#btn-repeat-mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+#btn-repeat-mode[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#btn-repeat-mode[aria-pressed="true"]:hover {
+  background: var(--accent-soft);
+}
+
 .site-footer {
   text-align: center;
   color: var(--muted);

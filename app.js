@@ -8,7 +8,11 @@ const state = {
   startTime: null,
   cleared: LESSONS.map(() => false),
   unlocked: LESSONS.map((_, i) => i === 0),
+  repeatMode: false,
+  repeatTimer: null,
 };
+
+const REPEAT_MODE_DELAY_MS = 800;
 
 const CHAR_TO_KEY = buildCharToKeyMap();
 
@@ -114,6 +118,20 @@ const unlockHintEl = document.getElementById("unlock-hint");
 const btnPrevLesson = document.getElementById("btn-prev-lesson");
 const btnRetry = document.getElementById("btn-retry");
 const btnNext = document.getElementById("btn-next");
+const btnRepeatMode = document.getElementById("btn-repeat-mode");
+
+function clearRepeatTimer() {
+  if (state.repeatTimer !== null) {
+    clearTimeout(state.repeatTimer);
+    state.repeatTimer = null;
+  }
+}
+
+function goToNextSentence() {
+  const lesson = currentLesson();
+  state.sentenceIndex = (state.sentenceIndex + 1) % lesson.sentences.length;
+  startSentence();
+}
 
 function currentLesson() {
   return LESSONS[state.lessonIndex];
@@ -124,6 +142,7 @@ function currentSentence() {
 }
 
 function startSentence() {
+  clearRepeatTimer();
   state.typedIndex = 0;
   state.mistakes = 0;
   state.startTime = null;
@@ -248,6 +267,11 @@ function onSentenceComplete() {
   } else {
     unlockHintEl.textContent = "";
   }
+
+  if (state.repeatMode) {
+    clearRepeatTimer();
+    state.repeatTimer = setTimeout(goToNextSentence, REPEAT_MODE_DELAY_MS);
+  }
 }
 
 // ---------- キー入力ハンドリング ----------
@@ -298,9 +322,13 @@ btnRetry.addEventListener("click", () => {
 
 btnNext.addEventListener("click", () => {
   if (btnNext.disabled) return;
-  const lesson = currentLesson();
-  state.sentenceIndex = (state.sentenceIndex + 1) % lesson.sentences.length;
-  startSentence();
+  goToNextSentence();
+});
+
+btnRepeatMode.addEventListener("click", () => {
+  state.repeatMode = !state.repeatMode;
+  btnRepeatMode.setAttribute("aria-pressed", String(state.repeatMode));
+  if (!state.repeatMode) clearRepeatTimer();
 });
 
 // ---------- 初期化 ----------
