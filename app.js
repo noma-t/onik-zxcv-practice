@@ -133,7 +133,6 @@ const lessonTitleEl = document.getElementById("lesson-title");
 const lessonDescEl = document.getElementById("lesson-desc");
 const sentenceEl = document.getElementById("sentence");
 const statsEl = document.getElementById("stats");
-const debugIoEl = document.getElementById("debug-io");
 const unlockHintEl = document.getElementById("unlock-hint");
 const btnPrevLesson = document.getElementById("btn-prev-lesson");
 const btnRetry = document.getElementById("btn-retry");
@@ -257,7 +256,6 @@ function processTypedChar(ch) {
   if (state.typedIndex >= text.length) return;
 
   const expected = text[state.typedIndex];
-  debugIoEl.textContent = `[デバッグ] 期待: "${expected}" / 判定文字: "${ch}"`;
   if (ch === expected) {
     if (state.startTime === null) state.startTime = Date.now();
     state.typedIndex++;
