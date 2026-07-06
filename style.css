@@ -162,6 +162,14 @@ body {
   color: var(--muted);
 }
 
+.key-shift-label {
+  font-weight: 700;
+}
+
+.key-hidden .key-special-label {
+  visibility: hidden;
+}
+
 .key-homing-dot {
   position: absolute;
   bottom: 6px;

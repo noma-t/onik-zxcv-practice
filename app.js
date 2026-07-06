@@ -32,6 +32,14 @@ function buildCharToKeyMap() {
 const keyboardEl = document.getElementById("keyboard");
 const keyElByCode = {};
 
+// 押しても入力に意味のないキー(枠は残し、ラベル文字だけ非表示にする)
+const HIDDEN_CODES = new Set([
+  "Backspace", "Tab", "CapsLock", "Enter",
+  "ControlLeft", "ControlRight",
+  "MetaLeft", "MetaRight",
+  "AltLeft", "AltRight",
+]);
+
 function buildKeyboard() {
   keyboardEl.innerHTML = "";
   for (const row of KEYBOARD_ROWS) {
@@ -43,10 +51,15 @@ function buildKeyboard() {
       keyEl.style.flexGrow = key.w;
       keyEl.dataset.code = key.code;
 
+      if (HIDDEN_CODES.has(key.code)) {
+        keyEl.classList.add("key-hidden");
+      }
+
       if (key.special !== undefined) {
         keyEl.classList.add("key-special");
         const label = document.createElement("span");
         label.className = "key-special-label";
+        if (key.special === "Shift") label.classList.add("key-shift-label");
         label.textContent = key.special;
         keyEl.appendChild(label);
       } else {
