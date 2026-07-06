@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>onik-zxcv 練習</title>
+<meta name="description" content="onik-zxcv配列の練習用ページ" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1>onik-zxcv 練習</h1>
+    <p class="lead">画面を見ずに、キーの位置を指に覚え込ませましょう。</p>
+  </header>
+
+  <main class="layout">
+    <nav class="lesson-nav" id="lesson-nav"></nav>
+
+    <section class="practice-panel">
+      <div class="keyboard" id="keyboard"></div>
+
+      <div class="lesson-info">
+        <h2 id="lesson-title"></h2>
+        <p id="lesson-desc"></p>
+      </div>
+
+      <div class="sentence-box" id="sentence"></div>
+
+      <div class="controls">
+        <div class="stats-row">
+          <span id="stats"></span>
+          <span class="unlock-hint" id="unlock-hint"></span>
+        </div>
+        <p class="debug-io" id="debug-io"></p>
+        <p class="rule-hint">※ ミス5回以下 かつ 秒2打以上 を達成すると、次のレッスンが解禁されます。</p>
+        <div class="buttons">
+          <button id="btn-prev-lesson">前のレッスン</button>
+          <button id="btn-retry">もう一度</button>
+          <button id="btn-next" disabled>次へ</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>
+      配列: <a href="https://note.com/oidy/n/n80f31fe43b98" target="_blank" rel="noopener noreferrer">onik-zxcv</a>
+      ／ ソース: <a href="https://github.com/noma-t/onik-zxcv-practice" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </p>
+  </footer>
+
+<script src="layout-data.js"></script>
+<script src="lessons-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
