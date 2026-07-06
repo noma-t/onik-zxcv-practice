@@ -60,6 +60,12 @@ function buildKeyboard() {
         baseEl.className = "key-base";
         baseEl.textContent = key.base === " " ? "" : key.base.toUpperCase();
         keyEl.appendChild(baseEl);
+
+        if (key.homing) {
+          const dot = document.createElement("span");
+          dot.className = "key-homing-dot";
+          keyEl.appendChild(dot);
+        }
       }
 
       keyElByCode[key.code] = keyEl;
