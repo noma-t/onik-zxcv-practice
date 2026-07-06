@@ -50,12 +50,6 @@ function buildKeyboard() {
         label.textContent = key.special;
         keyEl.appendChild(label);
       } else {
-        if (key.qwerty) {
-          const qwertyEl = document.createElement("span");
-          qwertyEl.className = "key-qwerty";
-          qwertyEl.textContent = key.qwerty;
-          keyEl.appendChild(qwertyEl);
-        }
         if (key.shift && key.shift !== key.base.toUpperCase()) {
           const shiftEl = document.createElement("span");
           shiftEl.className = "key-shift";
@@ -64,7 +58,7 @@ function buildKeyboard() {
         }
         const baseEl = document.createElement("span");
         baseEl.className = "key-base";
-        baseEl.textContent = key.base === " " ? "" : key.base;
+        baseEl.textContent = key.base === " " ? "" : key.base.toUpperCase();
         keyEl.appendChild(baseEl);
       }
 

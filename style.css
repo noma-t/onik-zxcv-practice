@@ -144,15 +144,6 @@ body {
   font-weight: 700;
 }
 
-.key-qwerty {
-  position: absolute;
-  top: 3px;
-  left: 6px;
-  font-size: 0.6rem;
-  color: var(--muted);
-  font-weight: 400;
-}
-
 .key-shift {
   position: absolute;
   top: 3px;
