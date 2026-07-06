@@ -77,11 +77,6 @@ body {
   transition: color 0.15s ease;
 }
 
-.lesson-nav-item:disabled {
-  color: #cfc8bc;
-  cursor: not-allowed;
-}
-
 .lesson-nav-item.active {
   color: var(--accent);
   font-weight: 700;
@@ -258,84 +253,6 @@ body {
 
 .char-pending {
   color: var(--text);
-}
-
-/* ---------- 統計・操作 ---------- */
-
-.controls {
-  margin-top: 1.25rem;
-}
-
-.stats-row {
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  font-size: 0.95rem;
-}
-
-.unlock-hint {
-  color: var(--success);
-  font-weight: 600;
-}
-
-.rule-hint {
-  margin: 0.4rem 0 0;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.buttons {
-  margin-top: 1rem;
-  display: flex;
-  gap: 0.6rem;
-}
-
-.buttons button {
-  font-family: inherit;
-  font-size: 0.9rem;
-  padding: 0.55rem 1.1rem;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.buttons button:hover:not(:disabled) {
-  background: var(--accent-soft);
-}
-
-.buttons button:disabled {
-  color: #cfc8bc;
-  cursor: not-allowed;
-}
-
-#btn-next:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-#btn-next:not(:disabled):hover {
-  background: #c8611a;
-}
-
-#btn-repeat-mode {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-}
-
-#btn-repeat-mode[aria-pressed="true"] {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-#btn-repeat-mode[aria-pressed="true"]:hover {
-  background: var(--accent-soft);
 }
 
 .site-footer {
