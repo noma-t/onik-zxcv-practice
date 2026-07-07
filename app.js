@@ -4,7 +4,6 @@ const state = {
   lessonIndex: 0,
   sentenceIndex: 0,
   typedIndex: 0,
-  cleared: LESSONS.map(() => false),
   hintsHidden: false,
   lockMode: false,
 };
@@ -118,7 +117,6 @@ function buildLessonNav() {
     item.className = "lesson-nav-item";
     item.textContent = `${i + 1}. ${lesson.title}`;
     if (i === state.lessonIndex) item.classList.add("active");
-    if (state.cleared[i]) item.classList.add("cleared");
     item.addEventListener("click", () => selectLesson(i));
     lessonNavEl.appendChild(item);
   });
@@ -267,11 +265,6 @@ function processTypedChar(ch) {
 }
 
 function onSentenceComplete() {
-  if (!state.cleared[state.lessonIndex]) {
-    state.cleared[state.lessonIndex] = true;
-    buildLessonNav();
-  }
-
   if (state.lockMode) {
     startSentence();
   } else {

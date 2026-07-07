@@ -6,8 +6,6 @@
   --border: #e6ddd0;
   --accent: #e2711d;
   --accent-soft: #fbe6d3;
-  --success: #4c9a72;
-  --success-soft: #e0f2e8;
   --danger: #d8564f;
   --danger-soft: #fbe2e0;
   --key-special-bg: #f3efe7;
@@ -80,11 +78,6 @@ body {
 .lesson-nav-item.active {
   color: var(--accent);
   font-weight: 700;
-}
-
-.lesson-nav-item.cleared::after {
-  content: " ✓";
-  color: var(--success);
 }
 
 /* ---------- 練習パネル ---------- */
@@ -361,8 +354,6 @@ body {
     --border: #453f37;
     --accent: #f0913f;
     --accent-soft: #4a3722;
-    --success: #6fbd94;
-    --success-soft: #234034;
     --danger: #e2746d;
     --danger-soft: #4a2622;
     --key-special-bg: #332e28;
