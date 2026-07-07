@@ -107,22 +107,38 @@ function buildFingers() {
 }
 
 // ---------- レッスンナビ描画 ----------
+//
+// 各レッスンは #/lessons/<番号> というハッシュURLに対応させ、ブックマークや
+// 戻る/進むボタン、直接リンクでそのレッスンを開けるようにする。
+
+const LESSON_HASH_PREFIX = "#/lessons/";
+
+function lessonHash(index) {
+  return `${LESSON_HASH_PREFIX}${index + 1}`;
+}
+
+function parseLessonIndexFromHash() {
+  const match = location.hash.match(/^#\/lessons\/(\d+)$/);
+  if (!match) return null;
+  const index = Number(match[1]) - 1;
+  return index >= 0 && index < LESSONS.length ? index : null;
+}
 
 const lessonNavEl = document.getElementById("lesson-nav");
 
 function buildLessonNav() {
   lessonNavEl.innerHTML = "";
   LESSONS.forEach((lesson, i) => {
-    const item = document.createElement("button");
+    const item = document.createElement("a");
     item.className = "lesson-nav-item";
+    item.href = lessonHash(i);
     item.textContent = `${i + 1}. ${lesson.title}`;
     if (i === state.lessonIndex) item.classList.add("active");
-    item.addEventListener("click", () => selectLesson(i));
     lessonNavEl.appendChild(item);
   });
 }
 
-function selectLesson(index) {
+function applyLesson(index) {
   state.lessonIndex = index;
   state.sentenceIndex = pickRandomSentenceIndex(LESSONS[index], -1);
   if (state.lockMode) toggleLockMode();
@@ -178,6 +194,7 @@ function startSentence() {
   const lesson = currentLesson();
   lessonTitleEl.textContent = `レッスン${state.lessonIndex + 1}: ${lesson.title}`;
   lessonDescEl.textContent = lesson.description;
+  document.title = `レッスン${state.lessonIndex + 1}: ${lesson.title} - onik-zxcv Practice`;
 
   updateHighlightedKeys();
   renderSentence();
@@ -324,6 +341,9 @@ document.addEventListener("keyup", (e) => {
 
 buildKeyboard();
 buildFingers();
-buildLessonNav();
-state.sentenceIndex = pickRandomSentenceIndex(currentLesson(), -1);
-startSentence();
+
+window.addEventListener("hashchange", () => {
+  applyLesson(parseLessonIndexFromHash() ?? 0);
+});
+
+applyLesson(parseLessonIndexFromHash() ?? 0);
