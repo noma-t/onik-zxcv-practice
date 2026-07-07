@@ -129,11 +129,13 @@ const lessonNavEl = document.getElementById("lesson-nav");
 function buildLessonNav() {
   lessonNavEl.innerHTML = "";
   LESSONS.forEach((lesson, i) => {
-    const item = document.createElement("a");
+    const item = document.createElement("button");
     item.className = "lesson-nav-item";
-    item.href = lessonHash(i);
     item.textContent = `${i + 1}. ${lesson.title}`;
     if (i === state.lessonIndex) item.classList.add("active");
+    item.addEventListener("click", () => {
+      location.hash = lessonHash(i);
+    });
     lessonNavEl.appendChild(item);
   });
 }
