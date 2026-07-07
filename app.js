@@ -5,11 +5,8 @@ const state = {
   sentenceIndex: 0,
   typedIndex: 0,
   cleared: LESSONS.map(() => false),
-  repeatTimer: null,
   hintsHidden: false,
 };
-
-const NEXT_SENTENCE_DELAY_MS = 800;
 
 const CHAR_TO_KEY = buildCharToKeyMap();
 
@@ -128,9 +125,19 @@ function buildLessonNav() {
 
 function selectLesson(index) {
   state.lessonIndex = index;
-  state.sentenceIndex = 0;
+  state.sentenceIndex = pickRandomSentenceIndex(LESSONS[index], -1);
   buildLessonNav();
   startSentence();
+}
+
+function pickRandomSentenceIndex(lesson, avoidIndex) {
+  const count = lesson.sentences.length;
+  if (count <= 1) return 0;
+  let index;
+  do {
+    index = Math.floor(Math.random() * count);
+  } while (index === avoidIndex);
+  return index;
 }
 
 // ---------- 練習エリア描画 ----------
@@ -145,16 +152,9 @@ function toggleHints() {
   fingersEl.classList.toggle("hints-hidden", state.hintsHidden);
 }
 
-function clearRepeatTimer() {
-  if (state.repeatTimer !== null) {
-    clearTimeout(state.repeatTimer);
-    state.repeatTimer = null;
-  }
-}
-
 function goToNextSentence() {
   const lesson = currentLesson();
-  state.sentenceIndex = (state.sentenceIndex + 1) % lesson.sentences.length;
+  state.sentenceIndex = pickRandomSentenceIndex(lesson, state.sentenceIndex);
   startSentence();
 }
 
@@ -167,7 +167,6 @@ function currentSentence() {
 }
 
 function startSentence() {
-  clearRepeatTimer();
   state.typedIndex = 0;
 
   const lesson = currentLesson();
@@ -265,8 +264,7 @@ function onSentenceComplete() {
     buildLessonNav();
   }
 
-  clearRepeatTimer();
-  state.repeatTimer = setTimeout(goToNextSentence, NEXT_SENTENCE_DELAY_MS);
+  goToNextSentence();
 }
 
 // ---------- キー入力ハンドリング ----------
@@ -316,4 +314,5 @@ document.addEventListener("keyup", (e) => {
 buildKeyboard();
 buildFingers();
 buildLessonNav();
+state.sentenceIndex = pickRandomSentenceIndex(currentLesson(), -1);
 startSentence();
