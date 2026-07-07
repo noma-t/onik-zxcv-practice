@@ -117,6 +117,21 @@ body {
   gap: 6px;
   margin-top: 1.5rem;
   user-select: none;
+  transition: filter 0.15s ease;
+}
+
+.keyboard.hints-hidden,
+.fingers.hints-hidden {
+  --accent: var(--border);
+  --accent-soft: var(--card-bg);
+  --danger: var(--border);
+  --danger-soft: var(--card-bg);
+  filter: blur(6px);
+}
+
+.keyboard.hints-hidden .key-pressed {
+  transform: none;
+  box-shadow: 0 2px 0 var(--border);
 }
 
 .kb-row {
@@ -216,6 +231,7 @@ body {
   align-items: flex-end;
   gap: 8px;
   margin-top: 14px;
+  transition: filter 0.15s ease;
 }
 
 .finger {

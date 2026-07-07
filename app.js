@@ -6,6 +6,7 @@ const state = {
   typedIndex: 0,
   cleared: LESSONS.map(() => false),
   repeatTimer: null,
+  hintsHidden: false,
 };
 
 const NEXT_SENTENCE_DELAY_MS = 800;
@@ -137,6 +138,12 @@ function selectLesson(index) {
 const lessonTitleEl = document.getElementById("lesson-title");
 const lessonDescEl = document.getElementById("lesson-desc");
 const sentenceEl = document.getElementById("sentence");
+
+function toggleHints() {
+  state.hintsHidden = !state.hintsHidden;
+  keyboardEl.classList.toggle("hints-hidden", state.hintsHidden);
+  fingersEl.classList.toggle("hints-hidden", state.hintsHidden);
+}
 
 function clearRepeatTimer() {
   if (state.repeatTimer !== null) {
@@ -271,6 +278,12 @@ function onSentenceComplete() {
 
 document.addEventListener("keydown", (e) => {
   const keyDef = KEY_BY_CODE[e.code];
+
+  if (e.code === "Backspace") {
+    e.preventDefault();
+    if (!e.repeat) toggleHints();
+    return;
+  }
 
   if (!e.repeat && keyDef && (!keyDef.special || keyDef.special === "Shift")) {
     const el = keyElByCode[e.code];
