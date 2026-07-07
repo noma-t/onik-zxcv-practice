@@ -140,10 +140,10 @@ function buildLessonNav() {
   });
 }
 
-function applyLesson(index) {
+function applyLesson(index, { keepLockMode = false } = {}) {
   state.lessonIndex = index;
   state.sentenceIndex = pickRandomSentenceIndex(LESSONS[index], -1);
-  if (state.lockMode) toggleLockMode();
+  if (!keepLockMode && state.lockMode) toggleLockMode();
   buildLessonNav();
   startSentence();
 }
@@ -169,11 +169,42 @@ function toggleHints() {
   state.hintsHidden = !state.hintsHidden;
   keyboardEl.classList.toggle("hints-hidden", state.hintsHidden);
   fingersEl.classList.toggle("hints-hidden", state.hintsHidden);
+  syncModeQueryParams();
 }
 
 function toggleLockMode() {
   state.lockMode = !state.lockMode;
   lockIndicatorEl.classList.toggle("is-visible", state.lockMode);
+  syncModeQueryParams();
+}
+
+// ---------- モード状態のURLクエリ同期 ----------
+//
+// BlurモードとLockモードをクエリパラメータ(?blur=1&lock=1)に反映し、
+// ページをリロードしても状態が保持されるようにする。
+
+function syncModeQueryParams() {
+  const params = new URLSearchParams(location.search);
+  if (state.hintsHidden) params.set("blur", "1");
+  else params.delete("blur");
+  if (state.lockMode) params.set("lock", "1");
+  else params.delete("lock");
+  const query = params.toString();
+  const newUrl = `${location.pathname}${query ? `?${query}` : ""}${location.hash}`;
+  history.replaceState(null, "", newUrl);
+}
+
+function applyModeQueryParams() {
+  const params = new URLSearchParams(location.search);
+  if (params.get("blur") === "1") {
+    state.hintsHidden = true;
+    keyboardEl.classList.add("hints-hidden");
+    fingersEl.classList.add("hints-hidden");
+  }
+  if (params.get("lock") === "1") {
+    state.lockMode = true;
+    lockIndicatorEl.classList.add("is-visible");
+  }
 }
 
 function goToNextSentence() {
@@ -343,9 +374,10 @@ document.addEventListener("keyup", (e) => {
 
 buildKeyboard();
 buildFingers();
+applyModeQueryParams();
 
 window.addEventListener("hashchange", () => {
   applyLesson(parseLessonIndexFromHash() ?? 0);
 });
 
-applyLesson(parseLessonIndexFromHash() ?? 0);
+applyLesson(parseLessonIndexFromHash() ?? 0, { keepLockMode: true });
