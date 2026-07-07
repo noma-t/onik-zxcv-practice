@@ -6,6 +6,7 @@ const state = {
   typedIndex: 0,
   cleared: LESSONS.map(() => false),
   hintsHidden: false,
+  lockMode: false,
 };
 
 const CHAR_TO_KEY = buildCharToKeyMap();
@@ -126,6 +127,7 @@ function buildLessonNav() {
 function selectLesson(index) {
   state.lessonIndex = index;
   state.sentenceIndex = pickRandomSentenceIndex(LESSONS[index], -1);
+  if (state.lockMode) toggleLockMode();
   buildLessonNav();
   startSentence();
 }
@@ -145,11 +147,17 @@ function pickRandomSentenceIndex(lesson, avoidIndex) {
 const lessonTitleEl = document.getElementById("lesson-title");
 const lessonDescEl = document.getElementById("lesson-desc");
 const sentenceEl = document.getElementById("sentence");
+const lockIndicatorEl = document.getElementById("lock-indicator");
 
 function toggleHints() {
   state.hintsHidden = !state.hintsHidden;
   keyboardEl.classList.toggle("hints-hidden", state.hintsHidden);
   fingersEl.classList.toggle("hints-hidden", state.hintsHidden);
+}
+
+function toggleLockMode() {
+  state.lockMode = !state.lockMode;
+  lockIndicatorEl.classList.toggle("is-visible", state.lockMode);
 }
 
 function goToNextSentence() {
@@ -264,7 +272,11 @@ function onSentenceComplete() {
     buildLessonNav();
   }
 
-  goToNextSentence();
+  if (state.lockMode) {
+    startSentence();
+  } else {
+    goToNextSentence();
+  }
 }
 
 // ---------- キー入力ハンドリング ----------
@@ -280,6 +292,12 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Backspace") {
     e.preventDefault();
     if (!e.repeat) toggleHints();
+    return;
+  }
+
+  if (e.code === "ControlRight") {
+    e.preventDefault();
+    if (!e.repeat) toggleLockMode();
     return;
   }
 

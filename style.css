@@ -253,8 +253,12 @@ body {
 
 /* ---------- 例文表示 ---------- */
 
-.sentence-box {
+.sentence-wrap {
+  position: relative;
   margin-top: 1.5rem;
+}
+
+.sentence-box {
   padding: 1.25rem 1.5rem;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -265,6 +269,18 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   min-height: 3.2em;
+}
+
+.lock-indicator {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  color: var(--accent);
+}
+
+.lock-indicator.is-visible {
+  display: flex;
 }
 
 .char-done {
