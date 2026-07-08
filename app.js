@@ -6,6 +6,7 @@ const state = {
   typedIndex: 0,
   hintsHidden: false,
   lockMode: false,
+  keyHighlight: false,
 };
 
 const CHAR_TO_KEY = buildCharToKeyMap();
@@ -178,6 +179,13 @@ function toggleLockMode() {
   syncModeQueryParams();
 }
 
+function toggleKeyHighlight() {
+  state.keyHighlight = !state.keyHighlight;
+  updateHighlightedKeys();
+  highlightNextKey();
+  syncModeQueryParams();
+}
+
 // ---------- モード状態のURLクエリ同期 ----------
 //
 // BlurモードとLockモードをクエリパラメータ(?blur=1&lock=1)に反映し、
@@ -189,6 +197,9 @@ function syncModeQueryParams() {
   else params.delete("blur");
   if (state.lockMode) params.set("lock", "1");
   else params.delete("lock");
+  if (state.keyHighlight) params.set("hl", "1");
+  else params.delete("hl");
+  
   const query = params.toString();
   const newUrl = `${location.pathname}${query ? `?${query}` : ""}${location.hash}`;
   history.replaceState(null, "", newUrl);
@@ -204,6 +215,12 @@ function applyModeQueryParams() {
   if (params.get("lock") === "1") {
     state.lockMode = true;
     lockIndicatorEl.classList.add("is-visible");
+  }
+  if (params.get("hl") === "1") {
+    state.keyHighlight = true;
+    updateHighlightedKeys();
+    highlightNextKey();
+    syncModeQueryParams();    
   }
 }
 
@@ -234,6 +251,13 @@ function startSentence() {
 }
 
 function updateHighlightedKeys() {
+  if (state.keyHighlight) {
+    for (const code in keyElByCode) {
+      const el = keyElByCode[code];
+      el.classList.remove("key-focus");
+    }
+    return
+  }
   const lesson = currentLesson();
   const cumulative = new Set();
   for (let i = 0; i <= state.lessonIndex; i++) {
@@ -275,6 +299,9 @@ function clearNextKeyHighlight() {
 
 function highlightNextKey() {
   clearNextKeyHighlight();
+  
+  if (state.keyHighlight) return;
+  
   const text = currentSentence();
   if (state.typedIndex >= text.length) return;
   const ch = text[state.typedIndex];
@@ -344,6 +371,8 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
+  
+
   if (!e.repeat && keyDef && (!keyDef.special || keyDef.special === "Shift")) {
     const el = keyElByCode[e.code];
     if (el) el.classList.add("key-pressed");
@@ -353,7 +382,10 @@ document.addEventListener("keydown", (e) => {
 
   if (e.code === "Enter") {
     e.preventDefault();
-    if (!e.repeat) processTypedChar("\n");
+    if (!e.repeat){
+      processTypedChar("\n");
+      toggleKeyHighlight();
+    }
     return;
   }
 
