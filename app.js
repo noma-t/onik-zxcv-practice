@@ -251,25 +251,19 @@ function startSentence() {
 }
 
 function updateHighlightedKeys() {
-  if (state.keyHighlight) {
-    for (const code in keyElByCode) {
-      const el = keyElByCode[code];
-      el.classList.remove("key-focus");
-    }
-    return
-  }
   const lesson = currentLesson();
   const cumulative = new Set();
   for (let i = 0; i <= state.lessonIndex; i++) {
     for (const code of LESSONS[i].newKeys) cumulative.add(code);
   }
+
   const isReview = lesson.newKeys.length === 0;
   for (const code in keyElByCode) {
     const el = keyElByCode[code];
     el.classList.remove("key-dim", "key-focus");
     if (!isReview && cumulative.size > 0) {
       if (cumulative.has(code)) {
-        if (lesson.newKeys.includes(code)) el.classList.add("key-focus");
+        if (lesson.newKeys.includes(code) && !state.keyHighlight) el.classList.add("key-focus");
       } else if (!KEY_BY_CODE[code].special && code !== "Space") {
         el.classList.add("key-dim");
       }
