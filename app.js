@@ -1,6 +1,6 @@
 // onik-zxcv 練習アプリ本体
 //
-// 通常モード: ひらがなのフレーズをローマ字で入力する(変換なし)。
+// 通常モード: 漢字かな交じりの問題文を、読みのローマ字で入力する(変換なし)。
 // フローモード: 流れてくるキーを、順番を気にせず入力する。
 
 // 通常モードの難易度 -> 問題の文字数の範囲
@@ -14,7 +14,7 @@ const state = {
   mode: "sentence", // "sentence" | "flow"
   level: "easy",
   options: { alpha: true, num: false, sym: false },
-  text: "",
+  segments: [], // 問題文。{ display: 表示, reading: 読み(ひらがな) } の並び
   units: [],
   unitIndex: 0,
   buffer: "",
@@ -131,16 +131,38 @@ function buildFingers() {
 
 // ---------- 練習テキスト生成 ----------
 
+// "{今日|きょう}はいい{天気|てんき}" -> [{ display: "今日", reading: "きょう" }, { display: "は", reading: "は" }, ...]
+// {} の外は1文字ずつのセグメントにする。カタカナはひらがなとして読む
+function parsePhrase(src) {
+  const segments = [];
+  for (const m of src.matchAll(/\{([^|}]+)\|([^}]+)\}|(.)/gu)) {
+    if (m[3] !== undefined) segments.push({ display: m[3], reading: toHiragana(m[3]) });
+    else segments.push({ display: m[1], reading: m[2] });
+  }
+  return segments;
+}
+
+function toHiragana(ch) {
+  const c = ch.codePointAt(0);
+  return c >= 0x30a1 && c <= 0x30f6 ? String.fromCodePoint(c - 0x60) : ch;
+}
+
+function readingLength(segments) {
+  return segments.reduce((n, seg) => n + [...seg.reading].length, 0);
+}
+
+const PHRASE_SEGMENTS = PHRASES.map(parsePhrase);
+
 function randomString(chars, length) {
   let out = "";
   for (let i = 0; i < length; i++) out += randomPick(chars);
   return out;
 }
 
-// 難易度の文字数範囲に収まる問題を作る。
-// アルファベット = ひらがなの自然なフレーズ(ローマ字入力)を1つだけ選ぶ(つなげない)。
+// 難易度の文字数範囲(読みの文字数)に収まる問題を作る。
+// アルファベット = 自然なフレーズ(読みをローマ字入力)を1つだけ選ぶ(つなげない)。
 // 数字・記号も有効なときは、フレーズの後ろに足して範囲内の長さにする。
-function generateText() {
+function generateSegments() {
   const { alpha, num, sym } = state.options;
   const { min, max } = LEVELS[state.level];
   const target = min + Math.floor(Math.random() * (max - min + 1));
@@ -148,38 +170,40 @@ function generateText() {
   if (num) fillers.push((rest) => randomString(DIGITS, Math.min(rest, 4)));
   if (sym) fillers.push((rest) => randomString(SYMBOLS, Math.min(rest, 3)));
 
-  let text = "";
+  const segments = [];
   let rest = target;
   if (alpha) {
     const phraseMax = fillers.length ? Math.max(target - 1, 2) : max;
     const phraseMin = fillers.length ? 2 : min;
-    const candidates = PHRASES.filter((p) => {
-      const n = [...p].length;
+    const candidates = PHRASE_SEGMENTS.filter((p) => {
+      const n = readingLength(p);
       return n >= phraseMin && n <= phraseMax;
     });
-    text = randomPick(candidates);
-    rest -= [...text].length;
+    segments.push(...randomPick(candidates));
+    rest -= readingLength(segments);
   }
   while (rest > 0 && fillers.length) {
-    const chunk = randomPick(fillers)(rest);
-    text += chunk;
-    rest -= [...chunk].length;
+    const chunk = [...randomPick(fillers)(rest)];
+    for (const ch of chunk) segments.push({ display: ch, reading: ch });
+    rest -= chunk.length;
   }
-  return text;
+  return segments;
 }
 
 // ---------- かな -> 入力単位(ユニット) ----------
 //
 // 1ユニット = 1回の「かな入力」(例: し = si/shi、きゃ = kya)。
 // cands にはそのユニットを入力できるローマ字の候補をすべて持たせ、どれで打っても進める。
+// start は読みの中での開始位置(文字数)。問題文のハイライトに使う。
 
 function buildUnits(text) {
   const chars = [...text];
   const units = [];
   let pendingSokuon = false;
+  let sokuonStart = 0;
 
   const flushSokuon = () => {
-    units.push({ display: "っ", cands: ["xtu", "ltu"] });
+    units.push({ display: "っ", cands: ["xtu", "ltu"], start: sokuonStart });
     pendingSokuon = false;
   };
 
@@ -188,20 +212,21 @@ function buildUnits(text) {
     if (ch === "っ") {
       if (pendingSokuon) flushSokuon();
       pendingSokuon = true;
+      sokuonStart = i;
       continue;
     }
 
     let unit;
     const pair = ch + (chars[i + 1] ?? "");
     if (ROMAJI_DIGRAPHS[pair]) {
-      unit = { display: pair, cands: ROMAJI_DIGRAPHS[pair] };
+      unit = { display: pair, cands: ROMAJI_DIGRAPHS[pair], start: i };
       i++;
     } else if (ch === "ん") {
-      unit = { display: ch, cands: null }; // 次のユニット次第なので後で決める
+      unit = { display: ch, cands: null, start: i }; // 次のユニット次第なので後で決める
     } else if (ROMAJI[ch]) {
-      unit = { display: ch, cands: ROMAJI[ch] };
+      unit = { display: ch, cands: ROMAJI[ch], start: i };
     } else {
-      unit = { display: ch, cands: [ch], literal: true };
+      unit = { display: ch, cands: [ch], literal: true, start: i };
     }
 
     if (pendingSokuon) {
@@ -211,6 +236,7 @@ function buildUnits(text) {
         // 子音を重ねる(tta)か、xtu/ltu を別打ちする
         unit.cands = unit.cands.flatMap((c) => [c[0] + c, "xtu" + c, "ltu" + c]);
         unit.display = "っ" + unit.display;
+        unit.start = sokuonStart;
         pendingSokuon = false;
       }
     }
@@ -236,7 +262,9 @@ const practiceEl = document.getElementById("practice-panel");
 const practiceTitleEl = document.getElementById("practice-title");
 const backBtnEl = document.getElementById("back-btn");
 const sentenceWrapEl = document.getElementById("sentence-wrap");
-const sentenceEl = document.getElementById("sentence");
+const questionTextEl = document.getElementById("q-text");
+const questionKanaEl = document.getElementById("q-kana");
+const questionRomajiEl = document.getElementById("q-romaji");
 const lockIndicatorEl = document.getElementById("lock-indicator");
 const flowWrapEl = document.getElementById("flow-wrap");
 const flowLaneEl = document.getElementById("flow-lane");
@@ -314,50 +342,61 @@ function currentUnit() {
 }
 
 function startNewText() {
-  state.text = generateText();
+  state.segments = generateSegments();
   startText();
 }
 
 function startText() {
-  state.units = buildUnits(state.text);
+  state.units = buildUnits(state.segments.map((seg) => seg.reading).join(""));
   state.unitIndex = 0;
   state.buffer = "";
   renderSentence();
 }
 
 function unitHint(unit) {
-  if (unit.literal) return unit.display === " " ? "␣" : "";
+  if (unit.literal) return unit.display === " " ? "␣" : unit.display;
   return unit.cands[0];
 }
 
+function appendSpan(parent, className, text) {
+  const el = document.createElement("span");
+  if (className) el.className = className;
+  el.textContent = text;
+  parent.appendChild(el);
+  return el;
+}
+
+// 問題文(漢字かな交じり)・読み・ローマ字の3段で表示し、入力済みの部分を薄くする。
+// 問題文は読みの入力位置に合わせて、入力中のセグメントをハイライトする。
 function renderSentence() {
-  sentenceEl.innerHTML = "";
+  const cur = currentUnit();
+  const doneChars = cur ? cur.start : Infinity;
+  const curEnd = cur ? cur.start + [...cur.display].length : Infinity;
+  const stateClass = (start, end) => (end <= doneChars ? "q-done" : start < curEnd ? "q-current" : "");
+
+  questionTextEl.innerHTML = "";
+  let offset = 0;
+  for (const seg of state.segments) {
+    const end = offset + [...seg.reading].length;
+    appendSpan(questionTextEl, stateClass(offset, end), seg.display);
+    offset = end;
+  }
+
+  questionKanaEl.innerHTML = "";
+  questionRomajiEl.innerHTML = "";
   state.units.forEach((unit, i) => {
-    const el = document.createElement("span");
-    el.className = "unit";
-    if (unit.display === " ") el.classList.add("unit-space");
-    if (i < state.unitIndex) el.classList.add("unit-done");
-    else if (i === state.unitIndex) el.classList.add("unit-current");
+    const kanaClass = i < state.unitIndex ? "q-done" : i === state.unitIndex ? "q-current" : "";
+    appendSpan(questionKanaEl, kanaClass, unit.display === " " ? "␣" : unit.display);
 
-    const kanaEl = document.createElement("span");
-    kanaEl.className = "unit-kana";
-    kanaEl.textContent = unit.display === " " ? "" : unit.display;
-    el.appendChild(kanaEl);
-
-    const romajiEl = document.createElement("span");
-    romajiEl.className = "unit-romaji";
-    if (i === state.unitIndex && state.buffer) {
+    if (i < state.unitIndex) {
+      appendSpan(questionRomajiEl, "q-done", unit.typed);
+    } else if (i === state.unitIndex) {
       const cand = unit.cands.find((c) => c.startsWith(state.buffer)) ?? unit.cands[0];
-      const typedEl = document.createElement("span");
-      typedEl.className = "unit-typed";
-      typedEl.textContent = state.buffer;
-      romajiEl.appendChild(typedEl);
-      romajiEl.append(cand.slice(state.buffer.length));
+      appendSpan(questionRomajiEl, "q-done", state.buffer);
+      appendSpan(questionRomajiEl, "q-current", cand.slice(state.buffer.length));
     } else {
-      romajiEl.textContent = unitHint(unit);
+      appendSpan(questionRomajiEl, "", unitHint(unit));
     }
-    el.appendChild(romajiEl);
-    sentenceEl.appendChild(el);
   });
   highlightNextKey();
 }
@@ -402,6 +441,7 @@ function flashKey(code, className) {
 }
 
 function completeUnit() {
+  currentUnit().typed = state.buffer;
   state.unitIndex++;
   state.buffer = "";
 }

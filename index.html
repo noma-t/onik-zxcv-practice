@@ -15,7 +15,7 @@
   <main class="layout">
     <section class="menu-panel" id="menu">
       <h2>練習を選ぶ</h2>
-      <p class="menu-label">通常(ひらがなをローマ字で入力。変換なし)</p>
+      <p class="menu-label">通常(問題文の読みをローマ字で入力。変換なし)</p>
       <div class="menu-levels">
         <button type="button" class="menu-card" data-mode="sentence" data-level="easy">
           <span class="menu-card-title">簡単</span><span class="menu-card-sub">2〜7文字</span>
@@ -47,7 +47,11 @@
         <label class="option"><input type="checkbox" id="opt-sym" /> 記号を練習する</label>
       </div>
       <div class="sentence-wrap" id="sentence-wrap">
-        <div class="sentence-box" id="sentence"></div>
+        <div class="sentence-box" id="sentence">
+          <div class="q-text" id="q-text"></div>
+          <div class="q-kana" id="q-kana"></div>
+          <div class="q-romaji" id="q-romaji"></div>
+        </div>
         <span class="lock-indicator" id="lock-indicator" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="5" y="11" width="14" height="10" rx="2"></rect>
