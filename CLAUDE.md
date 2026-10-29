@@ -5,10 +5,11 @@
 ## アーキテクチャ
 
 - `layout-data.js` - `KEYBOARD_ROWS`/`KEY_BY_CODE`(物理キー位置ごとのonik-zxcv配列定義)
-- `lessons-data.js` - `LESSONS`配列(各レッスンのtitle/description/newKeys/sentences)
+- `practice-data.js` - `PHRASES`(ひらがなフレーズ)、`ALPHA_WORDS`、かな→ローマ字候補表`ROMAJI`/`ROMAJI_DIGRAPHS`
 - `app.js` - 描画・状態・入力処理すべてを含む本体
 - 正誤判定は`KeyboardEvent.key`ではなく`KeyboardEvent.code`(物理キー位置)を使う。OSレベルのキーリマップの影響を受けないようにするため
-- レッスンは`#/lessons/N`のハッシュルーティングでURLを分けている(`index.html`は1つのまま)。ページ内リンクは意図的に`<button>` + `location.hash`書き換えで実装している(下記フォントの注意点を参照)
+- 段ごとのレッスンはなく総合練習1本。「アルファベット/数字/記号を含める」オプションと、通常モード(ひらがなをローマ字入力、変換なし)/フローモード(流れてくるキーを順不同で入力)がある。設定は`?alpha=1&num=1&sym=1&mode=flow`などクエリで保持する
+- ローマ字入力は1かな=1ユニットで複数候補(si/shi、tta/xtu+ta、ん=nn/n)を受理する。`buildUnits`参照
 
 ## 注意点・ハマりどころ
 
