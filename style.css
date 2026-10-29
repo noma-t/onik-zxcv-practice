@@ -91,6 +91,15 @@ body {
   cursor: pointer;
 }
 
+.option select {
+  font: inherit;
+  color: inherit;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.1rem 0.3rem;
+}
+
 .option input {
   accent-color: var(--accent);
 }
@@ -172,8 +181,9 @@ body {
 }
 
 .flow-lane {
-  position: relative;
-  height: 72px;
+  display: flex;
+  gap: 8px;
+  padding: 12px;
   overflow: hidden;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -181,9 +191,7 @@ body {
 }
 
 .flow-token {
-  position: absolute;
-  top: 12px;
-  left: 0;
+  flex: none;
   width: 40px;
   height: 46px;
   display: flex;
@@ -196,7 +204,11 @@ body {
   font-family: "SF Mono", "Consolas", monospace;
   font-size: 1.3rem;
   font-weight: 700;
-  will-change: transform;
+}
+
+.flow-token-current {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .flow-stats {

@@ -3,8 +3,11 @@
 // 通常モード: ひらがなのフレーズをローマ字で入力する(変換なし)。
 // フローモード: 流れてくるキーを、順番を気にせず入力する。
 
+const DEFAULT_LENGTH = 8;
+
 const state = {
   mode: "sentence", // "sentence" | "flow"
+  length: DEFAULT_LENGTH,
   options: { alpha: true, num: false, sym: false },
   text: "",
   units: [],
@@ -123,36 +126,38 @@ function buildFingers() {
 
 // ---------- 練習テキスト生成 ----------
 
-const PHRASE_COUNT = 4;
-const TOKEN_COUNT_NO_KANA = 8;
+const MIN_PHRASE_LENGTH = Math.min(...PHRASES.map((p) => [...p].length));
 
-function randomDigits() {
-  const length = 1 + Math.floor(Math.random() * 4);
+function randomString(chars, length) {
   let out = "";
-  for (let i = 0; i < length; i++) out += randomPick(DIGITS);
+  for (let i = 0; i < length; i++) out += randomPick(chars);
   return out;
 }
 
-function randomSymbols(min, max) {
-  const length = min + Math.floor(Math.random() * (max - min + 1));
-  let out = "";
-  for (let i = 0; i < length; i++) out += randomPick(SYMBOLS);
-  return out;
-}
-
-// 有効なカテゴリ(ひらがな/英字/数字/記号)からランダムに選んだトークンを並べる。
-// 記号だけのときは長めに出す。
+// 指定の文字数になるまで、有効なカテゴリのかたまりをランダムに並べる。
+// アルファベット = ひらがなフレーズ(ローマ字入力)。ひらがなは短い残りには収まらないことがある。
 function generateText() {
   const { alpha, num, sym } = state.options;
   const makers = [];
-  if (alpha) makers.push(() => randomPick(PHRASES));
-  if (num) makers.push(randomDigits);
-  if (sym) makers.push(() => randomSymbols(2, alpha || num ? 3 : 5));
+  if (alpha) {
+    makers.push({
+      min: MIN_PHRASE_LENGTH,
+      make: (rest) => randomPick(PHRASES.filter((p) => [...p].length <= rest)),
+    });
+  }
+  if (num) makers.push({ min: 1, make: (rest) => randomString(DIGITS, Math.min(rest, 4)) });
+  if (sym) makers.push({ min: 1, make: (rest) => randomString(SYMBOLS, Math.min(rest, 3)) });
 
-  const count = alpha ? PHRASE_COUNT : TOKEN_COUNT_NO_KANA;
-  const tokens = [];
-  for (let i = 0; i < count; i++) tokens.push(randomPick(makers)());
-  return tokens.join(" ");
+  let text = "";
+  let rest = state.length;
+  while (rest > 0) {
+    const fit = makers.filter((m) => m.min <= rest);
+    if (!fit.length) break;
+    const chunk = randomPick(fit).make(rest);
+    text += chunk;
+    rest -= [...chunk].length;
+  }
+  return text;
 }
 
 // ---------- かな -> 入力単位(ユニット) ----------
@@ -231,11 +236,13 @@ const optionInputs = {
   sym: document.getElementById("opt-sym"),
 };
 const OPTION_NAMES = ["alpha", "num", "sym"];
+const lengthLabelEl = document.getElementById("opt-length-label");
+const lengthSelectEl = document.getElementById("opt-length");
 const modeButtons = document.querySelectorAll(".mode-btn");
 
 const MODE_DESCRIPTIONS = {
   sentence: "ひらがなをローマ字で入力します(変換は不要)。",
-  flow: "流れてくるキーを、順番に関係なく入力します。",
+  flow: "ランダムに並んだキーを、左から順に入力します。",
 };
 
 function toggleHints() {
@@ -260,7 +267,7 @@ function toggleKeyHighlight() {
 // ---------- 設定のURLクエリ同期 ----------
 //
 // モードとオプションをクエリパラメータに反映し、リロードしても状態が保持されるようにする。
-//   blur=1 / lock=1 / hl=1 / alpha=0 / num=1 / sym=1 / mode=flow
+//   blur=1 / lock=1 / hl=1 / len=8 / alpha=0 / num=1 / sym=1 / mode=flow
 
 function syncModeQueryParams() {
   const params = new URLSearchParams(location.search);
@@ -272,6 +279,8 @@ function syncModeQueryParams() {
   else params.set("alpha", "0");
   setFlag("num", state.options.num);
   setFlag("sym", state.options.sym);
+  if (state.length !== DEFAULT_LENGTH) params.set("len", state.length);
+  else params.delete("len");
   if (state.mode === "flow") params.set("mode", "flow");
   else params.delete("mode");
 
@@ -297,6 +306,9 @@ function applyModeQueryParams() {
     optionInputs[name].checked = state.options[name];
   }
   if (params.get("mode") === "flow") state.mode = "flow";
+  const length = Number(params.get("len"));
+  if ([...lengthSelectEl.options].some((o) => Number(o.value) === length)) state.length = length;
+  lengthSelectEl.value = String(state.length);
 }
 
 // ---------- 通常モード ----------
@@ -356,7 +368,7 @@ function renderSentence() {
 
 // 次に押すべき文字(現在のユニットの、入力済み部分に続く文字)
 function nextExpectedChar() {
-  if (state.mode === "flow") return flowTokens[0]?.ch;
+  if (state.mode === "flow") return flowKeys[0];
   const unit = currentUnit();
   if (!unit) return undefined;
   const cand = unit.cands.find((c) => c.startsWith(state.buffer) && c.length > state.buffer.length);
@@ -419,7 +431,7 @@ function inputToUnit(ch) {
 
 function processTypedChar(ch, code) {
   if (state.mode === "flow") {
-    processFlowChar(ch, code);
+    processFlowChar(ch);
     return;
   }
   if (state.unitIndex >= state.units.length) return;
@@ -445,16 +457,11 @@ function onTextComplete() {
 // 右から左へキーが流れてくる。入力した文字と同じトークンのうち、最も左(先に出たもの)を消す。
 // 左端まで届いたら「逃した」。
 
-const FLOW_SPEED = 90; // px/秒
-const FLOW_SPAWN_MS = 900;
-const FLOW_TOKEN_WIDTH = 40;
+const FLOW_VISIBLE = 14;
 
-let flowTokens = [];
-let flowCaught = 0;
+let flowKeys = [];
+let flowTyped = 0;
 let flowMissed = 0;
-let flowSpawnTimer = 0;
-let flowLastTs = 0;
-let flowRaf = 0;
 
 function randomFlowChar() {
   const { alpha, num, sym } = state.options;
@@ -465,78 +472,37 @@ function randomFlowChar() {
   return randomPick(randomPick(categories));
 }
 
-function spawnFlowToken() {
-  const el = document.createElement("span");
-  el.className = "flow-token";
-  const ch = randomFlowChar();
-  el.textContent = ch;
-  flowLaneEl.appendChild(el);
-  flowTokens.push({ ch, el, x: flowLaneEl.clientWidth });
+function renderFlow() {
+  while (flowKeys.length < FLOW_VISIBLE) flowKeys.push(randomFlowChar());
+  flowLaneEl.innerHTML = "";
+  flowKeys.forEach((ch, i) => {
+    const el = document.createElement("span");
+    el.className = "flow-token";
+    if (i === 0) el.classList.add("flow-token-current");
+    el.textContent = ch;
+    flowLaneEl.appendChild(el);
+  });
+  flowStatsEl.textContent = `入力: ${flowTyped} ／ ミス: ${flowMissed}`;
   highlightNextKey();
-}
-
-function renderFlowStats() {
-  flowStatsEl.textContent = `入力: ${flowCaught} ／ 逃した: ${flowMissed}`;
 }
 
 function resetFlow() {
-  flowLaneEl.innerHTML = "";
-  flowTokens = [];
-  flowCaught = 0;
+  flowKeys = [];
+  flowTyped = 0;
   flowMissed = 0;
-  flowSpawnTimer = FLOW_SPAWN_MS; // 開始直後に1つ出す
-  renderFlowStats();
-  highlightNextKey();
+  renderFlow();
 }
 
-function flowFrame(ts) {
-  const dt = Math.min(ts - (flowLastTs || ts), 100);
-  flowLastTs = ts;
-
-  flowSpawnTimer += dt;
-  if (flowSpawnTimer >= FLOW_SPAWN_MS) {
-    flowSpawnTimer -= FLOW_SPAWN_MS;
-    spawnFlowToken();
-  }
-
-  let changed = false;
-  for (const token of flowTokens) {
-    token.x -= (FLOW_SPEED * dt) / 1000;
-    token.el.style.transform = `translateX(${token.x}px)`;
-  }
-  while (flowTokens.length && flowTokens[0].x < -FLOW_TOKEN_WIDTH) {
-    flowTokens.shift().el.remove();
+function processFlowChar(ch) {
+  if (ch === flowKeys[0]) {
+    flowKeys.shift();
+    flowTyped++;
+  } else {
     flowMissed++;
-    changed = true;
+    const target = CHAR_TO_KEY[flowKeys[0]];
+    if (target) flashKey(target.code, "key-mistake");
   }
-  if (changed) {
-    renderFlowStats();
-    highlightNextKey();
-  }
-  flowRaf = requestAnimationFrame(flowFrame);
-}
-
-function startFlowLoop() {
-  cancelAnimationFrame(flowRaf);
-  flowLastTs = 0;
-  flowRaf = requestAnimationFrame(flowFrame);
-}
-
-function stopFlowLoop() {
-  cancelAnimationFrame(flowRaf);
-  flowRaf = 0;
-}
-
-function processFlowChar(ch, code) {
-  const index = flowTokens.findIndex((t) => t.ch === ch);
-  if (index < 0) {
-    flashKey(code, "key-mistake");
-    return;
-  }
-  flowTokens.splice(index, 1)[0].el.remove();
-  flowCaught++;
-  renderFlowStats();
-  highlightNextKey();
+  renderFlow();
 }
 
 // ---------- モード・オプション切り替え ----------
@@ -548,13 +514,9 @@ function applyMode() {
   modeDescEl.textContent = MODE_DESCRIPTIONS[state.mode];
   modeButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.mode === state.mode));
 
-  if (isFlow) {
-    resetFlow();
-    startFlowLoop();
-  } else {
-    stopFlowLoop();
-    startNewText();
-  }
+  lengthLabelEl.hidden = isFlow;
+  if (isFlow) resetFlow();
+  else startNewText();
 }
 
 for (const name of OPTION_NAMES) {
@@ -569,6 +531,13 @@ for (const name of OPTION_NAMES) {
     applyMode();
   });
 }
+
+lengthSelectEl.addEventListener("change", (e) => {
+  state.length = Number(e.target.value);
+  e.target.blur();
+  syncModeQueryParams();
+  startNewText();
+});
 
 modeButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
