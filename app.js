@@ -131,41 +131,39 @@ function buildFingers() {
 
 // ---------- 練習テキスト生成 ----------
 
-const MIN_PHRASE_LENGTH = Math.min(...PHRASES.map((p) => [...p].length));
-
 function randomString(chars, length) {
   let out = "";
   for (let i = 0; i < length; i++) out += randomPick(chars);
   return out;
 }
 
-// 文字数が難易度の範囲に収まるまで、有効なカテゴリのかたまりをランダムに並べる。
-// アルファベット = ひらがなフレーズ(ローマ字入力)。収まらなければ引き直す。
+// 難易度の文字数範囲に収まる問題を作る。
+// アルファベット = ひらがなの自然なフレーズ(ローマ字入力)を1つだけ選ぶ(つなげない)。
+// 数字・記号も有効なときは、フレーズの後ろに足して範囲内の長さにする。
 function generateText() {
   const { alpha, num, sym } = state.options;
   const { min, max } = LEVELS[state.level];
-  const makers = [];
-  if (alpha) {
-    makers.push({
-      min: MIN_PHRASE_LENGTH,
-      make: (rest) => randomPick(PHRASES.filter((p) => [...p].length <= rest)),
-    });
-  }
-  if (num) makers.push({ min: 1, make: (rest) => randomString(DIGITS, Math.min(rest, 4)) });
-  if (sym) makers.push({ min: 1, make: (rest) => randomString(SYMBOLS, Math.min(rest, 3)) });
+  const target = min + Math.floor(Math.random() * (max - min + 1));
+  const fillers = [];
+  if (num) fillers.push((rest) => randomString(DIGITS, Math.min(rest, 4)));
+  if (sym) fillers.push((rest) => randomString(SYMBOLS, Math.min(rest, 3)));
 
   let text = "";
-  for (let attempt = 0; attempt < 20; attempt++) {
-    text = "";
-    let rest = min + Math.floor(Math.random() * (max - min + 1));
-    while (rest > 0) {
-      const fit = makers.filter((m) => m.min <= rest);
-      if (!fit.length) break;
-      const chunk = randomPick(fit).make(rest);
-      text += chunk;
-      rest -= [...chunk].length;
-    }
-    if ([...text].length >= min) break;
+  let rest = target;
+  if (alpha) {
+    const phraseMax = fillers.length ? Math.max(target - 1, 2) : max;
+    const phraseMin = fillers.length ? 2 : min;
+    const candidates = PHRASES.filter((p) => {
+      const n = [...p].length;
+      return n >= phraseMin && n <= phraseMax;
+    });
+    text = randomPick(candidates);
+    rest -= [...text].length;
+  }
+  while (rest > 0 && fillers.length) {
+    const chunk = randomPick(fillers)(rest);
+    text += chunk;
+    rest -= [...chunk].length;
   }
   return text;
 }
