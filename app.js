@@ -1,9 +1,23 @@
 // onik-zxcv 練習アプリ本体
+//
+// 通常モード: ひらがなのフレーズをローマ字で入力する(変換なし)。
+// フローモード: 流れてくるキーを、順番を気にせず入力する。
+
+// 通常モードの難易度 -> 問題の文字数の範囲
+const LEVELS = {
+  easy: { label: "簡単", min: 2, max: 7 },
+  normal: { label: "普通", min: 5, max: 10 },
+  long: { label: "長い", min: 9, max: 14 },
+};
 
 const state = {
-  lessonIndex: 0,
-  sentenceIndex: 0,
-  typedIndex: 0,
+  mode: "sentence", // "sentence" | "flow"
+  level: "easy",
+  options: { alpha: true, num: false, sym: false },
+  text: "",
+  units: [],
+  unitIndex: 0,
+  buffer: "",
   hintsHidden: false,
   lockMode: false,
   keyHighlight: false,
@@ -24,6 +38,14 @@ function buildCharToKeyMap() {
     }
   }
   return map;
+}
+
+const LETTERS_LOWER = [..."abcdefghijklmnopqrstuvwxyz"];
+const DIGITS = [..."0123456789"];
+const SYMBOLS = Object.keys(CHAR_TO_KEY).filter((ch) => !/[0-9A-Za-z ]/.test(ch));
+
+function randomPick(list) {
+  return list[Math.floor(Math.random() * list.length)];
 }
 
 // ---------- キーボード描画 ----------
@@ -107,64 +129,125 @@ function buildFingers() {
   }
 }
 
-// ---------- レッスンナビ描画 ----------
-//
-// 各レッスンは #/lessons/<番号> というハッシュURLに対応させ、ブックマークや
-// 戻る/進むボタン、直接リンクでそのレッスンを開けるようにする。
+// ---------- 練習テキスト生成 ----------
 
-const LESSON_HASH_PREFIX = "#/lessons/";
-
-function lessonHash(index) {
-  return `${LESSON_HASH_PREFIX}${index + 1}`;
+function randomString(chars, length) {
+  let out = "";
+  for (let i = 0; i < length; i++) out += randomPick(chars);
+  return out;
 }
 
-function parseLessonIndexFromHash() {
-  const match = location.hash.match(/^#\/lessons\/(\d+)$/);
-  if (!match) return null;
-  const index = Number(match[1]) - 1;
-  return index >= 0 && index < LESSONS.length ? index : null;
-}
+// 難易度の文字数範囲に収まる問題を作る。
+// アルファベット = ひらがなの自然なフレーズ(ローマ字入力)を1つだけ選ぶ(つなげない)。
+// 数字・記号も有効なときは、フレーズの後ろに足して範囲内の長さにする。
+function generateText() {
+  const { alpha, num, sym } = state.options;
+  const { min, max } = LEVELS[state.level];
+  const target = min + Math.floor(Math.random() * (max - min + 1));
+  const fillers = [];
+  if (num) fillers.push((rest) => randomString(DIGITS, Math.min(rest, 4)));
+  if (sym) fillers.push((rest) => randomString(SYMBOLS, Math.min(rest, 3)));
 
-const lessonNavEl = document.getElementById("lesson-nav");
-
-function buildLessonNav() {
-  lessonNavEl.innerHTML = "";
-  LESSONS.forEach((lesson, i) => {
-    const item = document.createElement("button");
-    item.className = "lesson-nav-item";
-    item.textContent = `${i + 1}. ${lesson.title}`;
-    if (i === state.lessonIndex) item.classList.add("active");
-    item.addEventListener("click", () => {
-      location.hash = lessonHash(i);
+  let text = "";
+  let rest = target;
+  if (alpha) {
+    const phraseMax = fillers.length ? Math.max(target - 1, 2) : max;
+    const phraseMin = fillers.length ? 2 : min;
+    const candidates = PHRASES.filter((p) => {
+      const n = [...p].length;
+      return n >= phraseMin && n <= phraseMax;
     });
-    lessonNavEl.appendChild(item);
+    text = randomPick(candidates);
+    rest -= [...text].length;
+  }
+  while (rest > 0 && fillers.length) {
+    const chunk = randomPick(fillers)(rest);
+    text += chunk;
+    rest -= [...chunk].length;
+  }
+  return text;
+}
+
+// ---------- かな -> 入力単位(ユニット) ----------
+//
+// 1ユニット = 1回の「かな入力」(例: し = si/shi、きゃ = kya)。
+// cands にはそのユニットを入力できるローマ字の候補をすべて持たせ、どれで打っても進める。
+
+function buildUnits(text) {
+  const chars = [...text];
+  const units = [];
+  let pendingSokuon = false;
+
+  const flushSokuon = () => {
+    units.push({ display: "っ", cands: ["xtu", "ltu"] });
+    pendingSokuon = false;
+  };
+
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    if (ch === "っ") {
+      if (pendingSokuon) flushSokuon();
+      pendingSokuon = true;
+      continue;
+    }
+
+    let unit;
+    const pair = ch + (chars[i + 1] ?? "");
+    if (ROMAJI_DIGRAPHS[pair]) {
+      unit = { display: pair, cands: ROMAJI_DIGRAPHS[pair] };
+      i++;
+    } else if (ch === "ん") {
+      unit = { display: ch, cands: null }; // 次のユニット次第なので後で決める
+    } else if (ROMAJI[ch]) {
+      unit = { display: ch, cands: ROMAJI[ch] };
+    } else {
+      unit = { display: ch, cands: [ch], literal: true };
+    }
+
+    if (pendingSokuon) {
+      if (unit.literal || unit.cands === null) {
+        flushSokuon();
+      } else {
+        // 子音を重ねる(tta)か、xtu/ltu を別打ちする
+        unit.cands = unit.cands.flatMap((c) => [c[0] + c, "xtu" + c, "ltu" + c]);
+        unit.display = "っ" + unit.display;
+        pendingSokuon = false;
+      }
+    }
+    units.push(unit);
+  }
+  if (pendingSokuon) flushSokuon();
+
+  // 「ん」: 次が子音のときだけ n 1回でもよい。それ以外は nn
+  units.forEach((unit, i) => {
+    if (unit.cands !== null) return;
+    const next = units[i + 1];
+    const nextIsConsonant = next && !next.literal && next.cands.every((c) => !"aiueony".includes(c[0]));
+    unit.cands = nextIsConsonant ? ["nn", "n"] : ["nn"];
   });
-}
 
-function applyLesson(index, { keepLockMode = false } = {}) {
-  state.lessonIndex = index;
-  state.sentenceIndex = pickRandomSentenceIndex(LESSONS[index], -1);
-  if (!keepLockMode && state.lockMode) toggleLockMode();
-  buildLessonNav();
-  startSentence();
-}
-
-function pickRandomSentenceIndex(lesson, avoidIndex) {
-  const count = lesson.sentences.length;
-  if (count <= 1) return 0;
-  let index;
-  do {
-    index = Math.floor(Math.random() * count);
-  } while (index === avoidIndex);
-  return index;
+  return units;
 }
 
 // ---------- 練習エリア描画 ----------
 
-const lessonTitleEl = document.getElementById("lesson-title");
-const lessonDescEl = document.getElementById("lesson-desc");
+const menuEl = document.getElementById("menu");
+const practiceEl = document.getElementById("practice-panel");
+const practiceTitleEl = document.getElementById("practice-title");
+const backBtnEl = document.getElementById("back-btn");
+const sentenceWrapEl = document.getElementById("sentence-wrap");
 const sentenceEl = document.getElementById("sentence");
 const lockIndicatorEl = document.getElementById("lock-indicator");
+const flowWrapEl = document.getElementById("flow-wrap");
+const flowLaneEl = document.getElementById("flow-lane");
+const flowStatsEl = document.getElementById("flow-stats");
+const optionInputs = {
+  alpha: document.getElementById("opt-alpha"),
+  num: document.getElementById("opt-num"),
+  sym: document.getElementById("opt-sym"),
+};
+const OPTION_NAMES = ["alpha", "num", "sym"];
+const menuCards = document.querySelectorAll(".menu-card");
 
 function toggleHints() {
   state.hintsHidden = !state.hintsHidden;
@@ -181,25 +264,26 @@ function toggleLockMode() {
 
 function toggleKeyHighlight() {
   state.keyHighlight = !state.keyHighlight;
-  updateHighlightedKeys();
   highlightNextKey();
   syncModeQueryParams();
 }
 
-// ---------- モード状態のURLクエリ同期 ----------
+// ---------- 設定のURLクエリ同期 ----------
 //
-// BlurモードとLockモードをクエリパラメータ(?blur=1&lock=1)に反映し、
-// ページをリロードしても状態が保持されるようにする。
+// モードとオプションをクエリパラメータに反映し、リロードしても状態が保持されるようにする。
+//   blur=1 / lock=1 / hl=1 / alpha=0 / num=1 / sym=1
 
 function syncModeQueryParams() {
   const params = new URLSearchParams(location.search);
-  if (state.hintsHidden) params.set("blur", "1");
-  else params.delete("blur");
-  if (state.lockMode) params.set("lock", "1");
-  else params.delete("lock");
-  if (state.keyHighlight) params.set("hl", "1");
-  else params.delete("hl");
-  
+  const setFlag = (name, on) => (on ? params.set(name, "1") : params.delete(name));
+  setFlag("blur", state.hintsHidden);
+  setFlag("lock", state.lockMode);
+  setFlag("hl", state.keyHighlight);
+  if (state.options.alpha) params.delete("alpha");
+  else params.set("alpha", "0");
+  setFlag("num", state.options.num);
+  setFlag("sym", state.options.sym);
+
   const query = params.toString();
   const newUrl = `${location.pathname}${query ? `?${query}` : ""}${location.hash}`;
   history.replaceState(null, "", newUrl);
@@ -216,74 +300,75 @@ function applyModeQueryParams() {
     state.lockMode = true;
     lockIndicatorEl.classList.add("is-visible");
   }
-  if (params.get("hl") === "1") {
-    state.keyHighlight = true;
-    updateHighlightedKeys();
-    highlightNextKey();
-    syncModeQueryParams();    
+  if (params.get("hl") === "1") state.keyHighlight = true;
+  for (const name of OPTION_NAMES) {
+    state.options[name] = name === "alpha" ? params.get(name) !== "0" : params.get(name) === "1";
+    optionInputs[name].checked = state.options[name];
   }
 }
 
-function goToNextSentence() {
-  const lesson = currentLesson();
-  state.sentenceIndex = pickRandomSentenceIndex(lesson, state.sentenceIndex);
-  startSentence();
+// ---------- 通常モード ----------
+
+function currentUnit() {
+  return state.units[state.unitIndex];
 }
 
-function currentLesson() {
-  return LESSONS[state.lessonIndex];
+function startNewText() {
+  state.text = generateText();
+  startText();
 }
 
-function currentSentence() {
-  return currentLesson().sentences[state.sentenceIndex];
-}
-
-function startSentence() {
-  state.typedIndex = 0;
-
-  const lesson = currentLesson();
-  lessonTitleEl.textContent = `レッスン${state.lessonIndex + 1}: ${lesson.title}`;
-  lessonDescEl.textContent = lesson.description;
-  document.title = `レッスン${state.lessonIndex + 1}: ${lesson.title} - onik-zxcv Practice`;
-
-  updateHighlightedKeys();
+function startText() {
+  state.units = buildUnits(state.text);
+  state.unitIndex = 0;
+  state.buffer = "";
   renderSentence();
 }
 
-function updateHighlightedKeys() {
-  const lesson = currentLesson();
-  const cumulative = new Set();
-  for (let i = 0; i <= state.lessonIndex; i++) {
-    for (const code of LESSONS[i].newKeys) cumulative.add(code);
-  }
-
-  const isReview = lesson.newKeys.length === 0;
-  for (const code in keyElByCode) {
-    const el = keyElByCode[code];
-    el.classList.remove("key-dim", "key-focus");
-    if (!isReview && cumulative.size > 0) {
-      if (cumulative.has(code)) {
-        if (lesson.newKeys.includes(code) && !state.keyHighlight) el.classList.add("key-focus");
-      } else if (!KEY_BY_CODE[code].special && code !== "Space") {
-        el.classList.add("key-dim");
-      }
-    }
-  }
+function unitHint(unit) {
+  if (unit.literal) return unit.display === " " ? "␣" : "";
+  return unit.cands[0];
 }
 
 function renderSentence() {
-  const text = currentSentence();
   sentenceEl.innerHTML = "";
-  clearNextKeyHighlight();
-  [...text].forEach((ch, i) => {
-    const span = document.createElement("span");
-    span.textContent = ch === " " ? " " : ch;
-    if (i < state.typedIndex) span.className = "char-done";
-    else if (i === state.typedIndex) span.className = "char-current";
-    else span.className = "char-pending";
-    sentenceEl.appendChild(span);
+  state.units.forEach((unit, i) => {
+    const el = document.createElement("span");
+    el.className = "unit";
+    if (unit.display === " ") el.classList.add("unit-space");
+    if (i < state.unitIndex) el.classList.add("unit-done");
+    else if (i === state.unitIndex) el.classList.add("unit-current");
+
+    const kanaEl = document.createElement("span");
+    kanaEl.className = "unit-kana";
+    kanaEl.textContent = unit.display === " " ? "" : unit.display;
+    el.appendChild(kanaEl);
+
+    const romajiEl = document.createElement("span");
+    romajiEl.className = "unit-romaji";
+    if (i === state.unitIndex && state.buffer) {
+      const cand = unit.cands.find((c) => c.startsWith(state.buffer)) ?? unit.cands[0];
+      const typedEl = document.createElement("span");
+      typedEl.className = "unit-typed";
+      typedEl.textContent = state.buffer;
+      romajiEl.appendChild(typedEl);
+      romajiEl.append(cand.slice(state.buffer.length));
+    } else {
+      romajiEl.textContent = unitHint(unit);
+    }
+    el.appendChild(romajiEl);
+    sentenceEl.appendChild(el);
   });
   highlightNextKey();
+}
+
+// 次に押すべき文字(現在のユニットの、入力済み部分に続く文字)
+function nextExpectedChar() {
+  if (state.mode === "flow") return flowKeys[0];
+  const unit = currentUnit();
+  if (!unit) return undefined;
+  const cand = unit.cands.find((c) => c.startsWith(state.buffer) && c.length > state.buffer.length);
+  return cand?.[state.buffer.length];
 }
 
 function clearNextKeyHighlight() {
@@ -293,12 +378,10 @@ function clearNextKeyHighlight() {
 
 function highlightNextKey() {
   clearNextKeyHighlight();
-  
   if (state.keyHighlight) return;
-  
-  const text = currentSentence();
-  if (state.typedIndex >= text.length) return;
-  const ch = text[state.typedIndex];
+
+  const ch = nextExpectedChar();
+  if (ch === undefined) return;
   const target = CHAR_TO_KEY[ch];
   if (!target) return;
   const el = keyElByCode[target.code];
@@ -318,30 +401,156 @@ function flashKey(code, className) {
   setTimeout(() => el.classList.remove(className), 150);
 }
 
-function processTypedChar(ch) {
-  const text = currentSentence();
-  if (state.typedIndex >= text.length) return;
+function completeUnit() {
+  state.unitIndex++;
+  state.buffer = "";
+}
 
-  const expected = text[state.typedIndex];
-  if (ch === expected) {
-    state.typedIndex++;
-    renderSentence();
-    if (state.typedIndex >= text.length) {
-      onSentenceComplete();
-    }
-  } else {
+// 現在のユニットへ1文字入力する。受理されたら true
+function inputToUnit(ch) {
+  const unit = currentUnit();
+  const next = state.buffer + ch;
+  if (unit.cands.some((c) => c.startsWith(next))) {
+    state.buffer = next;
+    const isExact = unit.cands.includes(next);
+    const canExtend = unit.cands.some((c) => c.length > next.length && c.startsWith(next));
+    if (isExact && !canExtend) completeUnit();
+    return true;
+  }
+  // 「ん」を n 1回で確定していた場合: 続けて次のユニットの入力が始まった
+  if (unit.cands.includes(state.buffer) && state.unitIndex + 1 < state.units.length) {
+    completeUnit();
+    return inputToUnit(ch);
+  }
+  return false;
+}
+
+function processTypedChar(ch, code) {
+  if (state.mode === "flow") {
+    processFlowChar(ch);
+    return;
+  }
+  if (state.unitIndex >= state.units.length) return;
+
+  const expected = nextExpectedChar();
+  const accepted = inputToUnit(ch);
+  renderSentence();
+  if (!accepted) {
     const target = CHAR_TO_KEY[expected];
     if (target) flashKey(target.code, "key-mistake");
+    return;
   }
+  if (state.unitIndex >= state.units.length) onTextComplete();
 }
 
-function onSentenceComplete() {
-  if (state.lockMode) {
-    startSentence();
-  } else {
-    goToNextSentence();
-  }
+function onTextComplete() {
+  if (state.lockMode) startText();
+  else startNewText();
 }
+
+// ---------- フローモード ----------
+//
+// 右から左へキーが流れてくる。入力した文字と同じトークンのうち、最も左(先に出たもの)を消す。
+// 左端まで届いたら「逃した」。
+
+const FLOW_VISIBLE = 14;
+
+let flowKeys = [];
+let flowTyped = 0;
+let flowMissed = 0;
+
+// 直前と同じキーが続かないようにする
+function randomFlowChar(prev) {
+  const { alpha, num, sym } = state.options;
+  const categories = [];
+  if (alpha) categories.push(LETTERS_LOWER);
+  if (num) categories.push(DIGITS);
+  if (sym) categories.push(SYMBOLS);
+  let ch;
+  do {
+    ch = randomPick(randomPick(categories));
+  } while (ch === prev);
+  return ch;
+}
+
+function renderFlow() {
+  while (flowKeys.length < FLOW_VISIBLE) flowKeys.push(randomFlowChar(flowKeys[flowKeys.length - 1]));
+  flowLaneEl.innerHTML = "";
+  flowKeys.forEach((ch, i) => {
+    const el = document.createElement("span");
+    el.className = "flow-token";
+    if (i === 0) el.classList.add("flow-token-current");
+    el.textContent = ch;
+    flowLaneEl.appendChild(el);
+  });
+  flowStatsEl.textContent = `入力: ${flowTyped} ／ ミス: ${flowMissed}`;
+  highlightNextKey();
+}
+
+function resetFlow() {
+  flowKeys = [];
+  flowTyped = 0;
+  flowMissed = 0;
+  renderFlow();
+}
+
+function processFlowChar(ch) {
+  if (ch === flowKeys[0]) {
+    flowKeys.shift();
+    flowTyped++;
+  } else {
+    flowMissed++;
+    const target = CHAR_TO_KEY[flowKeys[0]];
+    if (target) flashKey(target.code, "key-mistake");
+  }
+  renderFlow();
+}
+
+// ---------- モード・オプション切り替え ----------
+
+function startPractice(mode, level) {
+  state.mode = mode;
+  if (level) state.level = level;
+  const isFlow = mode === "flow";
+  menuEl.hidden = true;
+  practiceEl.hidden = false;
+  sentenceWrapEl.hidden = isFlow;
+  flowWrapEl.hidden = !isFlow;
+  practiceTitleEl.textContent = isFlow ? "フロー" : `${LEVELS[state.level].label}(${LEVELS[state.level].min}〜${LEVELS[state.level].max}文字)`;
+  if (isFlow) resetFlow();
+  else startNewText();
+}
+
+function showMenu() {
+  practiceEl.hidden = true;
+  menuEl.hidden = false;
+  clearNextKeyHighlight();
+}
+
+for (const name of OPTION_NAMES) {
+  optionInputs[name].addEventListener("change", (e) => {
+    // 少なくとも1つは練習対象にしておく
+    if (!e.target.checked && !OPTION_NAMES.some((n) => n !== name && state.options[n])) {
+      e.target.checked = true;
+    }
+    state.options[name] = e.target.checked;
+    e.target.blur(); // Space で再トグルされないようにする
+    syncModeQueryParams();
+    startPractice(state.mode);
+  });
+}
+
+menuCards.forEach((card) => {
+  card.addEventListener("click", () => {
+    card.blur(); // Space で再クリックされないようにする
+    startPractice(card.dataset.mode, card.dataset.level);
+  });
+});
+
+backBtnEl.addEventListener("click", () => {
+  backBtnEl.blur();
+  showMenu();
+});
 
 // ---------- キー入力ハンドリング ----------
 //
@@ -351,6 +560,13 @@ function onSentenceComplete() {
 // OSレベルのキーリマップが有効かどうかに関わらず、物理キーの位置だけで正誤判定できるようにするため。
 
 document.addEventListener("keydown", (e) => {
+  if (practiceEl.hidden) return; // メニュー画面では通常の操作のまま
+
+  if (e.code === "Escape") {
+    showMenu();
+    return;
+  }
+
   const keyDef = KEY_BY_CODE[e.code];
 
   if (e.code === "Backspace") {
@@ -365,8 +581,6 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
-  
-
   if (!e.repeat && keyDef && (!keyDef.special || keyDef.special === "Shift")) {
     const el = keyElByCode[e.code];
     if (el) el.classList.add("key-pressed");
@@ -376,10 +590,7 @@ document.addEventListener("keydown", (e) => {
 
   if (e.code === "Enter") {
     e.preventDefault();
-    if (!e.repeat){
-      processTypedChar("\n");
-      toggleKeyHighlight();
-    }
+    if (!e.repeat) toggleKeyHighlight();
     return;
   }
 
@@ -387,7 +598,7 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     if (e.repeat) return;
     const ch = e.shiftKey ? keyDef.shift : keyDef.base;
-    if (ch !== undefined) processTypedChar(ch);
+    if (ch !== undefined) processTypedChar(ch, e.code);
   }
 });
 
@@ -401,9 +612,3 @@ document.addEventListener("keyup", (e) => {
 buildKeyboard();
 buildFingers();
 applyModeQueryParams();
-
-window.addEventListener("hashchange", () => {
-  applyLesson(parseLessonIndexFromHash() ?? 0);
-});
-
-applyLesson(parseLessonIndexFromHash() ?? 0, { keepLockMode: true });
