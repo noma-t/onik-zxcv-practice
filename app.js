@@ -3,11 +3,16 @@
 // 通常モード: ひらがなのフレーズをローマ字で入力する(変換なし)。
 // フローモード: 流れてくるキーを、順番を気にせず入力する。
 
-const DEFAULT_LENGTH = 8;
+// 通常モードの難易度 -> 問題の文字数
+const LEVELS = {
+  easy: { label: "簡単", length: 5 },
+  normal: { label: "普通", length: 10 },
+  long: { label: "長い", length: 20 },
+};
 
 const state = {
   mode: "sentence", // "sentence" | "flow"
-  length: DEFAULT_LENGTH,
+  level: "easy",
   options: { alpha: true, num: false, sym: false },
   text: "",
   units: [],
@@ -149,7 +154,7 @@ function generateText() {
   if (sym) makers.push({ min: 1, make: (rest) => randomString(SYMBOLS, Math.min(rest, 3)) });
 
   let text = "";
-  let rest = state.length;
+  let rest = LEVELS[state.level].length;
   while (rest > 0) {
     const fit = makers.filter((m) => m.min <= rest);
     if (!fit.length) break;
@@ -223,7 +228,10 @@ function buildUnits(text) {
 
 // ---------- 練習エリア描画 ----------
 
-const modeDescEl = document.getElementById("mode-desc");
+const menuEl = document.getElementById("menu");
+const practiceEl = document.getElementById("practice-panel");
+const practiceTitleEl = document.getElementById("practice-title");
+const backBtnEl = document.getElementById("back-btn");
 const sentenceWrapEl = document.getElementById("sentence-wrap");
 const sentenceEl = document.getElementById("sentence");
 const lockIndicatorEl = document.getElementById("lock-indicator");
@@ -236,14 +244,7 @@ const optionInputs = {
   sym: document.getElementById("opt-sym"),
 };
 const OPTION_NAMES = ["alpha", "num", "sym"];
-const lengthLabelEl = document.getElementById("opt-length-label");
-const lengthSelectEl = document.getElementById("opt-length");
-const modeButtons = document.querySelectorAll(".mode-btn");
-
-const MODE_DESCRIPTIONS = {
-  sentence: "ひらがなをローマ字で入力します(変換は不要)。",
-  flow: "ランダムに並んだキーを、左から順に入力します。",
-};
+const menuCards = document.querySelectorAll(".menu-card");
 
 function toggleHints() {
   state.hintsHidden = !state.hintsHidden;
@@ -267,7 +268,7 @@ function toggleKeyHighlight() {
 // ---------- 設定のURLクエリ同期 ----------
 //
 // モードとオプションをクエリパラメータに反映し、リロードしても状態が保持されるようにする。
-//   blur=1 / lock=1 / hl=1 / len=8 / alpha=0 / num=1 / sym=1 / mode=flow
+//   blur=1 / lock=1 / hl=1 / alpha=0 / num=1 / sym=1
 
 function syncModeQueryParams() {
   const params = new URLSearchParams(location.search);
@@ -279,10 +280,6 @@ function syncModeQueryParams() {
   else params.set("alpha", "0");
   setFlag("num", state.options.num);
   setFlag("sym", state.options.sym);
-  if (state.length !== DEFAULT_LENGTH) params.set("len", state.length);
-  else params.delete("len");
-  if (state.mode === "flow") params.set("mode", "flow");
-  else params.delete("mode");
 
   const query = params.toString();
   const newUrl = `${location.pathname}${query ? `?${query}` : ""}${location.hash}`;
@@ -305,10 +302,6 @@ function applyModeQueryParams() {
     state.options[name] = name === "alpha" ? params.get(name) !== "0" : params.get(name) === "1";
     optionInputs[name].checked = state.options[name];
   }
-  if (params.get("mode") === "flow") state.mode = "flow";
-  const length = Number(params.get("len"));
-  if ([...lengthSelectEl.options].some((o) => Number(o.value) === length)) state.length = length;
-  lengthSelectEl.value = String(state.length);
 }
 
 // ---------- 通常モード ----------
@@ -507,16 +500,23 @@ function processFlowChar(ch) {
 
 // ---------- モード・オプション切り替え ----------
 
-function applyMode() {
-  const isFlow = state.mode === "flow";
+function startPractice(mode, level) {
+  state.mode = mode;
+  if (level) state.level = level;
+  const isFlow = mode === "flow";
+  menuEl.hidden = true;
+  practiceEl.hidden = false;
   sentenceWrapEl.hidden = isFlow;
   flowWrapEl.hidden = !isFlow;
-  modeDescEl.textContent = MODE_DESCRIPTIONS[state.mode];
-  modeButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.mode === state.mode));
-
-  lengthLabelEl.hidden = isFlow;
+  practiceTitleEl.textContent = isFlow ? "フロー" : `${LEVELS[state.level].label}(${LEVELS[state.level].length}文字)`;
   if (isFlow) resetFlow();
   else startNewText();
+}
+
+function showMenu() {
+  practiceEl.hidden = true;
+  menuEl.hidden = false;
+  clearNextKeyHighlight();
 }
 
 for (const name of OPTION_NAMES) {
@@ -526,27 +526,20 @@ for (const name of OPTION_NAMES) {
       e.target.checked = true;
     }
     state.options[name] = e.target.checked;
-    e.target.blur(); // Space で再トグルされないようにする
     syncModeQueryParams();
-    applyMode();
   });
 }
 
-lengthSelectEl.addEventListener("change", (e) => {
-  state.length = Number(e.target.value);
-  e.target.blur();
-  syncModeQueryParams();
-  startNewText();
+menuCards.forEach((card) => {
+  card.addEventListener("click", () => {
+    card.blur(); // Space で再クリックされないようにする
+    startPractice(card.dataset.mode, card.dataset.level);
+  });
 });
 
-modeButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    btn.blur();
-    if (state.mode === btn.dataset.mode) return;
-    state.mode = btn.dataset.mode;
-    syncModeQueryParams();
-    applyMode();
-  });
+backBtnEl.addEventListener("click", () => {
+  backBtnEl.blur();
+  showMenu();
 });
 
 // ---------- キー入力ハンドリング ----------
@@ -557,6 +550,13 @@ modeButtons.forEach((btn) => {
 // OSレベルのキーリマップが有効かどうかに関わらず、物理キーの位置だけで正誤判定できるようにするため。
 
 document.addEventListener("keydown", (e) => {
+  if (practiceEl.hidden) return; // メニュー画面では通常の操作のまま
+
+  if (e.code === "Escape") {
+    showMenu();
+    return;
+  }
+
   const keyDef = KEY_BY_CODE[e.code];
 
   if (e.code === "Backspace") {
@@ -602,4 +602,3 @@ document.addEventListener("keyup", (e) => {
 buildKeyboard();
 buildFingers();
 applyModeQueryParams();
-applyMode();

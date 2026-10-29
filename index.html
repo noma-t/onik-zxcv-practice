@@ -13,29 +13,37 @@
   </header>
 
   <main class="layout">
-    <section class="practice-panel">
-      <div class="lesson-info">
-        <h2>総合練習</h2>
-        <p id="mode-desc"></p>
-      </div>
-
+    <section class="menu-panel" id="menu">
+      <h2>練習を選ぶ</h2>
       <div class="options">
         <label class="option"><input type="checkbox" id="opt-alpha" checked /> アルファベットを練習する</label>
         <label class="option"><input type="checkbox" id="opt-num" /> 数字を練習する</label>
         <label class="option"><input type="checkbox" id="opt-sym" /> 記号を練習する</label>
-        <label class="option" id="opt-length-label">文字数
-          <select id="opt-length">
-            <option value="5">5</option>
-            <option value="8" selected>8</option>
-            <option value="12">12</option>
-            <option value="20">20</option>
-            <option value="30">30</option>
-          </select>
-        </label>
-        <div class="mode-switch" role="group" aria-label="モード">
-          <button type="button" class="mode-btn" data-mode="sentence">通常</button>
-          <button type="button" class="mode-btn" data-mode="flow">フロー</button>
-        </div>
+      </div>
+      <p class="menu-label">通常(ひらがなをローマ字で入力。変換なし)</p>
+      <div class="menu-levels">
+        <button type="button" class="menu-card" data-mode="sentence" data-level="easy">
+          <span class="menu-card-title">簡単</span><span class="menu-card-sub">5文字</span>
+        </button>
+        <button type="button" class="menu-card" data-mode="sentence" data-level="normal">
+          <span class="menu-card-title">普通</span><span class="menu-card-sub">10文字</span>
+        </button>
+        <button type="button" class="menu-card" data-mode="sentence" data-level="long">
+          <span class="menu-card-title">長い</span><span class="menu-card-sub">20文字</span>
+        </button>
+      </div>
+      <p class="menu-label">フロー(ランダムに並んだキーを左から順に入力)</p>
+      <div class="menu-levels">
+        <button type="button" class="menu-card" data-mode="flow">
+          <span class="menu-card-title">フロー</span><span class="menu-card-sub">エンドレス</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="practice-panel" id="practice-panel" hidden>
+      <div class="lesson-info">
+        <button type="button" class="back-btn" id="back-btn">← メニュー (Esc)</button>
+        <h2 id="practice-title"></h2>
       </div>
 
       <div class="sentence-wrap" id="sentence-wrap">

@@ -91,41 +91,77 @@ body {
   cursor: pointer;
 }
 
-.option select {
-  font: inherit;
-  color: inherit;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.1rem 0.3rem;
-}
-
 .option input {
   accent-color: var(--accent);
 }
 
-.mode-switch {
-  display: flex;
-  margin-left: auto;
+/* ---------- メニュー ---------- */
+
+.menu-panel {
+  background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
+  border-radius: 14px;
+  padding: 1.75rem;
+  box-shadow: 0 8px 24px rgba(60, 50, 30, 0.05);
 }
 
-.mode-btn {
-  font: inherit;
+.menu-panel h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.menu-label {
+  margin: 1.5rem 0 0.5rem;
+  color: var(--muted);
   font-size: 0.9rem;
+}
+
+.menu-levels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.menu-card {
+  font: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 1.1rem 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 2px 0 var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.menu-card:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.menu-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.menu-card-sub {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.back-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--muted);
   background: none;
   border: none;
-  color: var(--muted);
-  padding: 0.25rem 0.9rem;
+  padding: 0;
+  margin-bottom: 0.4rem;
   cursor: pointer;
-}
-
-.mode-btn.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 700;
 }
 
 /* ---------- 例文表示 ---------- */
