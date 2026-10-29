@@ -153,16 +153,24 @@ function readingLength(segments) {
 
 const PHRASE_SEGMENTS = PHRASES.map(parsePhrase);
 
+// 読みに数字・記号(ひらがな・ー・数字以外)を含むか
+const PHRASE_HAS_NUM = new Map(PHRASE_SEGMENTS.map((p) => [p, p.some((seg) => /[0-9]/.test(seg.reading))]));
+const PHRASE_HAS_SYM = new Map(PHRASE_SEGMENTS.map((p) => [p, p.some((seg) => /[^\u3041-\u3096ー0-9]/.test(seg.reading))]));
+
 // 同じ問題は、出てから RECENT_LIMIT 問の間は出さない
 const RECENT_LIMIT = 20;
 const recentPhrases = [];
 
 // 難易度の文字数範囲(読みの文字数)に収まるフレーズを1つ選ぶ。
-// 数字・句読点・記号はフレーズの中に自然に含まれているものだけを使う。
+// 数字・句読点・記号はフレーズの中に自然に含まれているものだけを使い、
+// 練習対象でオフにしているものを含むフレーズは出さない。
 function generateSegments() {
   const { min, max } = LEVELS[state.level];
+  const { num, sym } = state.options;
   const inRange = PHRASE_SEGMENTS.filter((p) => {
     const n = readingLength(p);
+    if (!num && PHRASE_HAS_NUM.get(p)) return false;
+    if (!sym && PHRASE_HAS_SYM.get(p)) return false;
     return n >= min && n <= max;
   });
   const fresh = inRange.filter((p) => !recentPhrases.includes(p));
@@ -251,7 +259,7 @@ const lockIndicatorEl = document.getElementById("lock-indicator");
 const flowWrapEl = document.getElementById("flow-wrap");
 const flowLaneEl = document.getElementById("flow-lane");
 const flowStatsEl = document.getElementById("flow-stats");
-const optionsEl = document.getElementById("options");
+const optionAlphaLabelEl = document.getElementById("opt-alpha-label");
 const optionInputs = {
   alpha: document.getElementById("opt-alpha"),
   num: document.getElementById("opt-num"),
@@ -539,7 +547,12 @@ function startPractice(mode, level) {
   practiceEl.hidden = false;
   sentenceWrapEl.hidden = isFlow;
   flowWrapEl.hidden = !isFlow;
-  optionsEl.hidden = !isFlow; // 練習対象の切り替えはフローのみ
+  // 通常モードでアルファベットは常に練習するので、数字・記号だけ切り替えられる
+  optionAlphaLabelEl.hidden = !isFlow;
+  if (isFlow && !OPTION_NAMES.some((n) => state.options[n])) {
+    state.options.alpha = optionInputs.alpha.checked = true;
+    syncModeQueryParams();
+  }
   practiceTitleEl.textContent = isFlow ? "フロー" : `${LEVELS[state.level].label}(${LEVELS[state.level].min}〜${LEVELS[state.level].max}文字)`;
   if (isFlow) resetFlow();
   else startNewText();
@@ -553,8 +566,8 @@ function showMenu() {
 
 for (const name of OPTION_NAMES) {
   optionInputs[name].addEventListener("change", (e) => {
-    // 少なくとも1つは練習対象にしておく
-    if (!e.target.checked && !OPTION_NAMES.some((n) => n !== name && state.options[n])) {
+    // フローでは少なくとも1つは練習対象にしておく
+    if (state.mode === "flow" && !e.target.checked && !OPTION_NAMES.some((n) => n !== name && state.options[n])) {
       e.target.checked = true;
     }
     state.options[name] = e.target.checked;
