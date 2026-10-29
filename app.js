@@ -5,7 +5,7 @@
 
 const state = {
   mode: "sentence", // "sentence" | "flow"
-  options: { kana: true, alpha: false, num: false, sym: false },
+  options: { alpha: false, num: false, sym: false },
   text: "",
   units: [],
   unitIndex: 0,
@@ -127,7 +127,12 @@ function buildFingers() {
 
 const PHRASE_COUNT = 4;
 const TOKEN_COUNT_NO_KANA = 8;
-const JP_PUNCT = ["、", "。", "！", "？"];
+
+// アルファベット/数字/記号のどれも選んでいないときは、ひらがな(ローマ字入力)の練習
+function isKanaPractice() {
+  const { alpha, num, sym } = state.options;
+  return !alpha && !num && !sym;
+}
 
 function randomDigits() {
   const length = 1 + Math.floor(Math.random() * 4);
@@ -144,23 +149,15 @@ function randomSymbols(min, max) {
 }
 
 // 有効なカテゴリ(ひらがな/英字/数字/記号)からランダムに選んだトークンを並べる。
-// 記号だけのときは長めに、ひらがなと一緒のときは日本語の句読点・括弧も付ける。
+// 記号だけのときは長めに出す。
 function generateText() {
-  const { kana, alpha, num, sym } = state.options;
+  const { alpha, num, sym } = state.options;
+  const kana = isKanaPractice();
   const makers = [];
-  if (kana) {
-    makers.push(() => {
-      let phrase = randomPick(PHRASES);
-      if (sym) {
-        if (Math.random() < 0.25) phrase = `「${phrase}」`;
-        if (Math.random() < 0.5) phrase += randomPick(JP_PUNCT);
-      }
-      return phrase;
-    });
-  }
+  if (kana) makers.push(() => randomPick(PHRASES));
   if (alpha) makers.push(() => randomPick(ALPHA_WORDS));
   if (num) makers.push(randomDigits);
-  if (sym) makers.push(() => randomSymbols(2, kana || alpha || num ? 3 : 5));
+  if (sym) makers.push(() => randomSymbols(2, alpha || num ? 3 : 5));
 
   const count = kana ? PHRASE_COUNT : TOKEN_COUNT_NO_KANA;
   const tokens = [];
@@ -239,12 +236,11 @@ const flowWrapEl = document.getElementById("flow-wrap");
 const flowLaneEl = document.getElementById("flow-lane");
 const flowStatsEl = document.getElementById("flow-stats");
 const optionInputs = {
-  kana: document.getElementById("opt-kana"),
   alpha: document.getElementById("opt-alpha"),
   num: document.getElementById("opt-num"),
   sym: document.getElementById("opt-sym"),
 };
-const OPTION_NAMES = ["kana", "alpha", "num", "sym"];
+const OPTION_NAMES = ["alpha", "num", "sym"];
 const modeButtons = document.querySelectorAll(".mode-btn");
 
 const MODE_DESCRIPTIONS = {
@@ -274,7 +270,7 @@ function toggleKeyHighlight() {
 // ---------- 設定のURLクエリ同期 ----------
 //
 // モードとオプションをクエリパラメータに反映し、リロードしても状態が保持されるようにする。
-//   blur=1 / lock=1 / hl=1 / kana=0 / alpha=1 / num=1 / sym=1 / mode=flow
+//   blur=1 / lock=1 / hl=1 / alpha=1 / num=1 / sym=1 / mode=flow
 
 function syncModeQueryParams() {
   const params = new URLSearchParams(location.search);
@@ -283,8 +279,6 @@ function syncModeQueryParams() {
   setFlag("lock", state.lockMode);
   setFlag("hl", state.keyHighlight);
   setFlag("alpha", state.options.alpha);
-  if (state.options.kana) params.delete("kana");
-  else params.set("kana", "0");
   setFlag("num", state.options.num);
   setFlag("sym", state.options.sym);
   if (state.mode === "flow") params.set("mode", "flow");
@@ -308,7 +302,7 @@ function applyModeQueryParams() {
   }
   if (params.get("hl") === "1") state.keyHighlight = true;
   for (const name of OPTION_NAMES) {
-    state.options[name] = name === "kana" ? params.get(name) !== "0" : params.get(name) === "1";
+    state.options[name] = params.get(name) === "1";
     optionInputs[name].checked = state.options[name];
   }
   if (params.get("mode") === "flow") state.mode = "flow";
@@ -472,8 +466,9 @@ let flowLastTs = 0;
 let flowRaf = 0;
 
 function randomFlowChar() {
-  const { kana, alpha, num, sym } = state.options;
+  const { alpha, num, sym } = state.options;
   const categories = [];
+  const kana = isKanaPractice();
   if (kana) categories.push(ROMAJI_LETTERS);
   if (alpha) categories.push([...LETTERS_LOWER, ...LETTERS_UPPER]);
   if (num) categories.push(DIGITS);
@@ -575,10 +570,6 @@ function applyMode() {
 
 for (const name of OPTION_NAMES) {
   optionInputs[name].addEventListener("change", (e) => {
-    // 少なくとも1つは有効にしておく
-    if (!OPTION_NAMES.some((n) => n !== name && state.options[n]) && !e.target.checked) {
-      e.target.checked = true;
-    }
     state.options[name] = e.target.checked;
     e.target.blur(); // Space で再トグルされないようにする
     syncModeQueryParams();
