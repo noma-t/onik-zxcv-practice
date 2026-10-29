@@ -3,11 +3,11 @@
 // 通常モード: ひらがなのフレーズをローマ字で入力する(変換なし)。
 // フローモード: 流れてくるキーを、順番を気にせず入力する。
 
-// 通常モードの難易度 -> 問題の文字数
+// 通常モードの難易度 -> 問題の文字数の範囲
 const LEVELS = {
-  easy: { label: "簡単", length: 5 },
-  normal: { label: "普通", length: 10 },
-  long: { label: "長い", length: 20 },
+  easy: { label: "簡単", min: 2, max: 7 },
+  normal: { label: "普通", min: 5, max: 10 },
+  long: { label: "長い", min: 9, max: 14 },
 };
 
 const state = {
@@ -139,10 +139,11 @@ function randomString(chars, length) {
   return out;
 }
 
-// 指定の文字数になるまで、有効なカテゴリのかたまりをランダムに並べる。
-// アルファベット = ひらがなフレーズ(ローマ字入力)。ひらがなは短い残りには収まらないことがある。
+// 文字数が難易度の範囲に収まるまで、有効なカテゴリのかたまりをランダムに並べる。
+// アルファベット = ひらがなフレーズ(ローマ字入力)。収まらなければ引き直す。
 function generateText() {
   const { alpha, num, sym } = state.options;
+  const { min, max } = LEVELS[state.level];
   const makers = [];
   if (alpha) {
     makers.push({
@@ -154,13 +155,17 @@ function generateText() {
   if (sym) makers.push({ min: 1, make: (rest) => randomString(SYMBOLS, Math.min(rest, 3)) });
 
   let text = "";
-  let rest = LEVELS[state.level].length;
-  while (rest > 0) {
-    const fit = makers.filter((m) => m.min <= rest);
-    if (!fit.length) break;
-    const chunk = randomPick(fit).make(rest);
-    text += chunk;
-    rest -= [...chunk].length;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    text = "";
+    let rest = min + Math.floor(Math.random() * (max - min + 1));
+    while (rest > 0) {
+      const fit = makers.filter((m) => m.min <= rest);
+      if (!fit.length) break;
+      const chunk = randomPick(fit).make(rest);
+      text += chunk;
+      rest -= [...chunk].length;
+    }
+    if ([...text].length >= min) break;
   }
   return text;
 }
@@ -456,17 +461,22 @@ let flowKeys = [];
 let flowTyped = 0;
 let flowMissed = 0;
 
-function randomFlowChar() {
+// 直前と同じキーが続かないようにする
+function randomFlowChar(prev) {
   const { alpha, num, sym } = state.options;
   const categories = [];
   if (alpha) categories.push(LETTERS_LOWER);
   if (num) categories.push(DIGITS);
   if (sym) categories.push(SYMBOLS);
-  return randomPick(randomPick(categories));
+  let ch;
+  do {
+    ch = randomPick(randomPick(categories));
+  } while (ch === prev);
+  return ch;
 }
 
 function renderFlow() {
-  while (flowKeys.length < FLOW_VISIBLE) flowKeys.push(randomFlowChar());
+  while (flowKeys.length < FLOW_VISIBLE) flowKeys.push(randomFlowChar(flowKeys[flowKeys.length - 1]));
   flowLaneEl.innerHTML = "";
   flowKeys.forEach((ch, i) => {
     const el = document.createElement("span");
@@ -508,7 +518,7 @@ function startPractice(mode, level) {
   practiceEl.hidden = false;
   sentenceWrapEl.hidden = isFlow;
   flowWrapEl.hidden = !isFlow;
-  practiceTitleEl.textContent = isFlow ? "フロー" : `${LEVELS[state.level].label}(${LEVELS[state.level].length}文字)`;
+  practiceTitleEl.textContent = isFlow ? "フロー" : `${LEVELS[state.level].label}(${LEVELS[state.level].min}〜${LEVELS[state.level].max}文字)`;
   if (isFlow) resetFlow();
   else startNewText();
 }
@@ -526,7 +536,9 @@ for (const name of OPTION_NAMES) {
       e.target.checked = true;
     }
     state.options[name] = e.target.checked;
+    e.target.blur(); // Space で再トグルされないようにする
     syncModeQueryParams();
+    startPractice(state.mode);
   });
 }
 

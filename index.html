@@ -15,21 +15,16 @@
   <main class="layout">
     <section class="menu-panel" id="menu">
       <h2>練習を選ぶ</h2>
-      <div class="options">
-        <label class="option"><input type="checkbox" id="opt-alpha" checked /> アルファベットを練習する</label>
-        <label class="option"><input type="checkbox" id="opt-num" /> 数字を練習する</label>
-        <label class="option"><input type="checkbox" id="opt-sym" /> 記号を練習する</label>
-      </div>
       <p class="menu-label">通常(ひらがなをローマ字で入力。変換なし)</p>
       <div class="menu-levels">
         <button type="button" class="menu-card" data-mode="sentence" data-level="easy">
-          <span class="menu-card-title">簡単</span><span class="menu-card-sub">5文字</span>
+          <span class="menu-card-title">簡単</span><span class="menu-card-sub">2〜7文字</span>
         </button>
         <button type="button" class="menu-card" data-mode="sentence" data-level="normal">
-          <span class="menu-card-title">普通</span><span class="menu-card-sub">10文字</span>
+          <span class="menu-card-title">普通</span><span class="menu-card-sub">5〜10文字</span>
         </button>
         <button type="button" class="menu-card" data-mode="sentence" data-level="long">
-          <span class="menu-card-title">長い</span><span class="menu-card-sub">20文字</span>
+          <span class="menu-card-title">長い</span><span class="menu-card-sub">9〜14文字</span>
         </button>
       </div>
       <p class="menu-label">フロー(ランダムに並んだキーを左から順に入力)</p>
@@ -46,6 +41,11 @@
         <h2 id="practice-title"></h2>
       </div>
 
+      <div class="options">
+        <label class="option"><input type="checkbox" id="opt-alpha" checked /> アルファベットを練習する</label>
+        <label class="option"><input type="checkbox" id="opt-num" /> 数字を練習する</label>
+        <label class="option"><input type="checkbox" id="opt-sym" /> 記号を練習する</label>
+      </div>
       <div class="sentence-wrap" id="sentence-wrap">
         <div class="sentence-box" id="sentence"></div>
         <span class="lock-indicator" id="lock-indicator" aria-hidden="true">
