@@ -5,7 +5,7 @@
 
 const state = {
   mode: "sentence", // "sentence" | "flow"
-  options: { alpha: false, num: false, sym: false },
+  options: { kana: true, alpha: false, num: false, sym: false },
   text: "",
   units: [],
   unitIndex: 0,
@@ -126,6 +126,7 @@ function buildFingers() {
 // ---------- 練習テキスト生成 ----------
 
 const PHRASE_COUNT = 4;
+const TOKEN_COUNT_NO_KANA = 8;
 const JP_PUNCT = ["、", "。", "！", "？"];
 
 function randomDigits() {
@@ -135,31 +136,35 @@ function randomDigits() {
   return out;
 }
 
-function randomSymbols() {
-  const length = 1 + Math.floor(Math.random() * 3);
+function randomSymbols(min, max) {
+  const length = min + Math.floor(Math.random() * (max - min + 1));
   let out = "";
   for (let i = 0; i < length; i++) out += randomPick(SYMBOLS);
   return out;
 }
 
+// 有効なカテゴリ(ひらがな/英字/数字/記号)からランダムに選んだトークンを並べる。
+// 記号だけのときは長めに、ひらがなと一緒のときは日本語の句読点・括弧も付ける。
 function generateText() {
-  const { alpha, num, sym } = state.options;
+  const { kana, alpha, num, sym } = state.options;
+  const makers = [];
+  if (kana) {
+    makers.push(() => {
+      let phrase = randomPick(PHRASES);
+      if (sym) {
+        if (Math.random() < 0.25) phrase = `「${phrase}」`;
+        if (Math.random() < 0.5) phrase += randomPick(JP_PUNCT);
+      }
+      return phrase;
+    });
+  }
+  if (alpha) makers.push(() => randomPick(ALPHA_WORDS));
+  if (num) makers.push(randomDigits);
+  if (sym) makers.push(() => randomSymbols(2, kana || alpha || num ? 3 : 5));
+
+  const count = kana ? PHRASE_COUNT : TOKEN_COUNT_NO_KANA;
   const tokens = [];
-  for (let i = 0; i < PHRASE_COUNT; i++) {
-    let phrase = randomPick(PHRASES);
-    if (sym) {
-      if (Math.random() < 0.25) phrase = `「${phrase}」`;
-      if (Math.random() < 0.5) phrase += randomPick(JP_PUNCT);
-    }
-    tokens.push(phrase);
-  }
-  const extras = [];
-  if (alpha) extras.push(randomPick(ALPHA_WORDS), randomPick(ALPHA_WORDS));
-  if (num) extras.push(randomDigits(), randomDigits());
-  if (sym) extras.push(randomSymbols(), randomSymbols());
-  for (const extra of extras) {
-    tokens.splice(Math.floor(Math.random() * (tokens.length + 1)), 0, extra);
-  }
+  for (let i = 0; i < count; i++) tokens.push(randomPick(makers)());
   return tokens.join(" ");
 }
 
@@ -234,10 +239,12 @@ const flowWrapEl = document.getElementById("flow-wrap");
 const flowLaneEl = document.getElementById("flow-lane");
 const flowStatsEl = document.getElementById("flow-stats");
 const optionInputs = {
+  kana: document.getElementById("opt-kana"),
   alpha: document.getElementById("opt-alpha"),
   num: document.getElementById("opt-num"),
   sym: document.getElementById("opt-sym"),
 };
+const OPTION_NAMES = ["kana", "alpha", "num", "sym"];
 const modeButtons = document.querySelectorAll(".mode-btn");
 
 const MODE_DESCRIPTIONS = {
@@ -267,7 +274,7 @@ function toggleKeyHighlight() {
 // ---------- 設定のURLクエリ同期 ----------
 //
 // モードとオプションをクエリパラメータに反映し、リロードしても状態が保持されるようにする。
-//   blur=1 / lock=1 / hl=1 / alpha=1 / num=1 / sym=1 / mode=flow
+//   blur=1 / lock=1 / hl=1 / kana=0 / alpha=1 / num=1 / sym=1 / mode=flow
 
 function syncModeQueryParams() {
   const params = new URLSearchParams(location.search);
@@ -276,6 +283,8 @@ function syncModeQueryParams() {
   setFlag("lock", state.lockMode);
   setFlag("hl", state.keyHighlight);
   setFlag("alpha", state.options.alpha);
+  if (state.options.kana) params.delete("kana");
+  else params.set("kana", "0");
   setFlag("num", state.options.num);
   setFlag("sym", state.options.sym);
   if (state.mode === "flow") params.set("mode", "flow");
@@ -298,8 +307,8 @@ function applyModeQueryParams() {
     lockIndicatorEl.classList.add("is-visible");
   }
   if (params.get("hl") === "1") state.keyHighlight = true;
-  for (const name of ["alpha", "num", "sym"]) {
-    state.options[name] = params.get(name) === "1";
+  for (const name of OPTION_NAMES) {
+    state.options[name] = name === "kana" ? params.get(name) !== "0" : params.get(name) === "1";
     optionInputs[name].checked = state.options[name];
   }
   if (params.get("mode") === "flow") state.mode = "flow";
@@ -463,8 +472,9 @@ let flowLastTs = 0;
 let flowRaf = 0;
 
 function randomFlowChar() {
-  const { alpha, num, sym } = state.options;
-  const categories = [ROMAJI_LETTERS];
+  const { kana, alpha, num, sym } = state.options;
+  const categories = [];
+  if (kana) categories.push(ROMAJI_LETTERS);
   if (alpha) categories.push([...LETTERS_LOWER, ...LETTERS_UPPER]);
   if (num) categories.push(DIGITS);
   if (sym) categories.push(SYMBOLS);
@@ -563,8 +573,12 @@ function applyMode() {
   }
 }
 
-for (const name of ["alpha", "num", "sym"]) {
+for (const name of OPTION_NAMES) {
   optionInputs[name].addEventListener("change", (e) => {
+    // 少なくとも1つは有効にしておく
+    if (!OPTION_NAMES.some((n) => n !== name && state.options[n]) && !e.target.checked) {
+      e.target.checked = true;
+    }
     state.options[name] = e.target.checked;
     e.target.blur(); // Space で再トグルされないようにする
     syncModeQueryParams();
