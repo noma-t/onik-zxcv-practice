@@ -1,6 +1,5 @@
 // 練習データ
 // PHRASES      = ひらがなのフレーズ(ローマ字で入力する。変換は不要)
-// ALPHA_WORDS  = 「アルファベットを含める」で混ぜる英字
 // ROMAJI*      = かな -> 入力に使うローマ字候補(先頭が表示用。複数候補はどれで打ってもよい)
 
 const PHRASES = [
@@ -23,14 +22,6 @@ const PHRASES = [
   "みじかいはなし", "ひろいにわ", "せまいへや", "はやいくるま", "おそいかめ",
   "つよいかぜ", "よわいひ", "わらうかお", "なくこども", "ゆきだるま",
   "でんわをかける", "てがみをかく", "えをかく", "うたをうたう", "はなをうえる",
-];
-
-const ALPHA_WORDS = [
-  "Git", "Web", "email", "Linux", "iPhone", "onik", "zxcv", "Qwerty", "Java", "Python",
-  "quiz", "jazz", "fox", "Wifi", "XML", "HTML", "CSS", "USB", "PC", "AI",
-  "GPS", "Zoom", "Excel", "Word", "Vim", "Emacs", "Kotlin", "Ruby", "Swift", "Node",
-  "Docker", "Slack", "Google", "Apple", "Yahoo", "Bluetooth", "VPN", "SQL", "JSON", "API",
-  "Mac", "Windows", "Android", "Chrome", "Visual", "Xbox", "Quartz", "Kindle",
 ];
 
 const ROMAJI = {
