@@ -153,41 +153,23 @@ function readingLength(segments) {
 
 const PHRASE_SEGMENTS = PHRASES.map(parsePhrase);
 
-function randomString(chars, length) {
-  let out = "";
-  for (let i = 0; i < length; i++) out += randomPick(chars);
-  return out;
-}
+// 同じ問題は、出てから RECENT_LIMIT 問の間は出さない
+const RECENT_LIMIT = 20;
+const recentPhrases = [];
 
-// 難易度の文字数範囲(読みの文字数)に収まる問題を作る。
-// アルファベット = 自然なフレーズ(読みをローマ字入力)を1つだけ選ぶ(つなげない)。
-// 数字・記号も有効なときは、フレーズの後ろに足して範囲内の長さにする。
+// 難易度の文字数範囲(読みの文字数)に収まるフレーズを1つ選ぶ。
+// 数字・句読点・記号はフレーズの中に自然に含まれているものだけを使う。
 function generateSegments() {
-  const { alpha, num, sym } = state.options;
   const { min, max } = LEVELS[state.level];
-  const target = min + Math.floor(Math.random() * (max - min + 1));
-  const fillers = [];
-  if (num) fillers.push((rest) => randomString(DIGITS, Math.min(rest, 4)));
-  if (sym) fillers.push((rest) => randomString(SYMBOLS, Math.min(rest, 3)));
-
-  const segments = [];
-  let rest = target;
-  if (alpha) {
-    const phraseMax = fillers.length ? Math.max(target - 1, 2) : max;
-    const phraseMin = fillers.length ? 2 : min;
-    const candidates = PHRASE_SEGMENTS.filter((p) => {
-      const n = readingLength(p);
-      return n >= phraseMin && n <= phraseMax;
-    });
-    segments.push(...randomPick(candidates));
-    rest -= readingLength(segments);
-  }
-  while (rest > 0 && fillers.length) {
-    const chunk = [...randomPick(fillers)(rest)];
-    for (const ch of chunk) segments.push({ display: ch, reading: ch });
-    rest -= chunk.length;
-  }
-  return segments;
+  const inRange = PHRASE_SEGMENTS.filter((p) => {
+    const n = readingLength(p);
+    return n >= min && n <= max;
+  });
+  const fresh = inRange.filter((p) => !recentPhrases.includes(p));
+  const phrase = randomPick(fresh.length ? fresh : inRange);
+  recentPhrases.push(phrase);
+  if (recentPhrases.length > RECENT_LIMIT) recentPhrases.shift();
+  return phrase;
 }
 
 // ---------- かな -> 入力単位(ユニット) ----------
@@ -269,6 +251,7 @@ const lockIndicatorEl = document.getElementById("lock-indicator");
 const flowWrapEl = document.getElementById("flow-wrap");
 const flowLaneEl = document.getElementById("flow-lane");
 const flowStatsEl = document.getElementById("flow-stats");
+const optionsEl = document.getElementById("options");
 const optionInputs = {
   alpha: document.getElementById("opt-alpha"),
   num: document.getElementById("opt-num"),
@@ -556,6 +539,7 @@ function startPractice(mode, level) {
   practiceEl.hidden = false;
   sentenceWrapEl.hidden = isFlow;
   flowWrapEl.hidden = !isFlow;
+  optionsEl.hidden = !isFlow; // 練習対象の切り替えはフローのみ
   practiceTitleEl.textContent = isFlow ? "フロー" : `${LEVELS[state.level].label}(${LEVELS[state.level].min}〜${LEVELS[state.level].max}文字)`;
   if (isFlow) resetFlow();
   else startNewText();
